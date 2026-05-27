@@ -9,13 +9,15 @@ Process:
   Let llm apply the patch including the llm.md introduction and instructions.
 - **2. Run the sql script:**
   Run the python script to split the initial sql file into multiple files.
-- **3. Make sure bazel is happy:**
+- **3. Run atlas:**
+  Run `atlas migrate hash` to generate the new `atlas.sum` file.
+- **4. Make sure bazel is happy:**
   Run `bazel build //...` to make sure bazel is happy with the new files.
-- **4. Dump the database:**
+- **5. Dump the database:**
   Dump the mysql database
-- **5. Delete all tables:**
+- **6. Delete all tables:**
   Delete all tables from the database.
-- **6. Deploy the new code:**
+- **7. Deploy the new code:**
   Deploy the new code with the atlas migrations.
-- **7. Import the dumped data:**
+- **8. Import the dumped data:**
   Import the dumped data back into the database.
