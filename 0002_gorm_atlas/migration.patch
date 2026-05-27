@@ -56,6 +56,7 @@ index a2009b8..308a2b9 100644
 +    service = [
 +        "email",
 +    ],
++    db = "mysql",
 +    visibility = ["//visibility:private"],
 +)
 diff --git a/.bazelrc b/.bazelrc
@@ -82,12 +83,12 @@ index 40b9552..9082a06 100644
  bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
  bazel_dep(name = "buildifier_prebuilt", version = "8.2.1", dev_dependency = True)
 -bazel_dep(name = "rules", version = "0.20.37", dev_dependency = True)
-+bazel_dep(name = "rules", version = "0.20.66", dev_dependency = True)
++bazel_dep(name = "rules", version = "0.20.67", dev_dependency = True)
  git_override(
      module_name = "rules",
      remote = "git@github.com:mindful-hq/rules.git",
 -    tag = "v0.20.37",
-+    tag = "v0.20.66",
++    tag = "v0.20.67",
  )
  
 -bazel_dep(name = "global_generics", version = "0.34.1", dev_dependency = True)
@@ -583,10 +584,10 @@ index 0000000..d1f1111
 +++ b/db/BUILD.bazel
 @@ -0,0 +1,38 @@
 +load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
-+load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations", "atlas_migrations_test")
++load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations_mysql", "atlas_migrations_mysql_test")
 +load("@rules_go//go:def.bzl", "go_library")
 +
-+atlas_migrations(
++atlas_migrations_mysql(
 +    name = "atlas_migrations",
 +    migrations = glob(
 +        [
@@ -608,7 +609,7 @@ index 0000000..d1f1111
 +    visibility = ["//cmd/earth_email_service:__pkg__"],
 +)
 +
-+atlas_migrations_test(
++atlas_migrations_mysql_test(
 +    name = "atlas_migrations_test",
 +    migrations = ":atlas_migrations",
 +)

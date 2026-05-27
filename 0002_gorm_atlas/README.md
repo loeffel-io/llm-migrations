@@ -1,4 +1,4 @@
-**Requires 0001 and Agents.md file**
+**Requires 0001 + Agents.md file + MySQL or stateless service (sqlite not supported)**
 
 Before mindful can go live we need to move from gorm to atlas migrations.
 Atlas does generate the migrations.
@@ -23,3 +23,5 @@ Process:
   Deploy the new code with the atlas migrations.
 - **8. Import the dumped data:**
   Import the dumped data back into the database.
+- **9. Cleanup:**
+  Remove `allow_empty = True` from `atlas_migrations_mysql` target
