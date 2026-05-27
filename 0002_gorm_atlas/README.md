@@ -1,4 +1,4 @@
-**Requires 0001**
+**Requires 0001 and Agents.md file**
 
 Before mindful can go live we need to move from gorm to atlas migrations.
 Atlas does generate the migrations.
