@@ -1,3 +1,5 @@
+**Requires 0001**
+
 Before mindful can go live we need to move from gorm to atlas migrations.
 Atlas does generate the migrations.
 We use a llm generated python script to split the initial sql file initial
