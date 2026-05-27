@@ -24,3 +24,5 @@ If the service has a database, when you are done:
 - Run `bazel run //db:atlas_migration_sources`
 - Ensure the `//db:atlas_migration_sources_test` test passes successfully.
 - _Note: The `//db:atlas_migrations_test` will fail, and this is expected and okay. Do not try to fix it._
+
+The diff is located at: DIFF_HERE
