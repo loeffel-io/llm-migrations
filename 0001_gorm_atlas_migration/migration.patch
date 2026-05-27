@@ -1,0 +1,2924 @@
+diff --git a/.bazelversion b/.bazelversion
+index 8104cab..acd405b 100644
+--- a/.bazelversion
++++ b/.bazelversion
+@@ -1 +1 @@
+-8.1.0
++8.6.0
+diff --git a/build/buildkite/pipeline.yml b/build/buildkite/pipeline.yml
+index eed342e..08d703d 100644
+--- a/build/buildkite/pipeline.yml
++++ b/build/buildkite/pipeline.yml
+@@ -5,7 +5,7 @@ env:
+ _templates:
+   - &init . ${HOME}/init.sh && bazel version
+   - &k8s-buildkite-plugin-base
+-    image: "us-central1-docker.pkg.dev/buildkite-382710/buildkite-production-docker/buildkite-bazel@sha256:3a858aeb09abeb19f41f888a7471e8869229d7b231370eb3d3793794863928a0"
++    image: "us-central1-docker.pkg.dev/buildkite-382710/buildkite-production-docker/buildkite-bazel@sha256:503e0797a9f8a2a96ca478b8239043b8d980bf0ab94136f5242429b2af950bf4"
+     secret-name: "buildkite"
+     environment-from-secret: "buildkite"
+     agent-token-secret-key: "buildkite-agent-token"
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 20337db..a4db5b1 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -6,10 +6,9 @@ module(
+ bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
+ bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = True)
+ bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
+-bazel_dep(name = "aspect_bazel_lib", version = "2.21.2", dev_dependency = True)
+-bazel_dep(name = "rules_python", version = "1.7.0", dev_dependency = True)  # TODO: remove after user root issue is released and rules pkg bumped: https://github.com/bazelbuild/rules_python/pull/713 (rules_pkg)
+-bazel_dep(name = "bazel_skylib", version = "1.8.2", dev_dependency = True)
+-bazel_dep(name = "rules_pkg", version = "1.1.0", dev_dependency = True)
++bazel_dep(name = "aspect_bazel_lib", version = "2.22.5", dev_dependency = True)
++bazel_dep(name = "bazel_skylib", version = "1.9.0", dev_dependency = True)
++bazel_dep(name = "rules_pkg", version = "1.2.0", dev_dependency = True)
+ bazel_dep(name = "container_structure_test", version = "1.21.1", dev_dependency = True)
+ bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+ bazel_dep(name = "buildifier_prebuilt", version = "8.2.1", dev_dependency = True)
+diff --git a/BUILD.bazel b/BUILD.bazel
+index a2009b8..308a2b9 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,4 +1,5 @@
+ load("@gazelle//:def.bzl", "gazelle")
++load("@rules//pkg/ai/llm:llm.bzl", "earth_go_service_agents_md_template")
+ load("@rules//pkg/ls_lint:ls_lint.bzl", "ls_lint_test")
+ load("@rules_go//go:def.bzl", "TOOLS_NOGO", "nogo")
+ 
+@@ -44,3 +45,11 @@ ls_lint_test(
+         "//deployments/staging:files",
+     ],
+ )
++
++earth_go_service_agents_md_template(
++    name = "agents_md",
++    service = [
++        "email",
++    ],
++    visibility = ["//visibility:private"],
++)
+diff --git a/.bazelrc b/.bazelrc
+index dca8d94..1ca6e5f 100644
+--- a/.bazelrc
++++ b/.bazelrc
+@@ -1 +1,9 @@
+-build --define=MINDFUL_USER= --workspace_status_command="bash scripts/bazel/workspace_status.sh"
++build --define=MINDFUL_USER=
++build --workspace_status_command="bash scripts/bazel/workspace_status.sh"
++
++# prebuilt protobuf
++# remove after bazel 9 migration and https://github.com/bazel-contrib/rules_go/issues/4587
++build --incompatible_enable_proto_toolchain_resolution
++build --per_file_copt=external/.*protobuf.*@-DPROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
++build --host_per_file_copt=external/.*protobuf.*@-DPROTOBUF_WAS_NOT_SUPPOSED_TO_BE_BUILT
++build --per_file_copt=external/.*grpc.*@-DGRPC_WAS_NOT_SUPPOSED_TO_BE_BUILT
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 40b9552..9082a06 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -12,32 +12,32 @@ bazel_dep(name = "rules_pkg", version = "1.2.0", dev_dependency = True)
+ bazel_dep(name = "container_structure_test", version = "1.21.1", dev_dependency = True)
+ bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+ bazel_dep(name = "buildifier_prebuilt", version = "8.2.1", dev_dependency = True)
+-bazel_dep(name = "rules", version = "0.20.37", dev_dependency = True)
++bazel_dep(name = "rules", version = "0.20.66", dev_dependency = True)
+ git_override(
+     module_name = "rules",
+     remote = "git@github.com:mindful-hq/rules.git",
+-    tag = "v0.20.37",
++    tag = "v0.20.66",
+ )
+ 
+-bazel_dep(name = "global_generics", version = "0.34.1", dev_dependency = True)
++bazel_dep(name = "global_generics", version = "0.38.11", dev_dependency = True)
+ git_override(
+     module_name = "global_generics",
+     remote = "git@github.com:mindful-hq/global-generics.git",
+-    tag = "v0.34.1",
++    tag = "v0.38.11",
+ )
+ 
+-bazel_dep(name = "global_proto", version = "2.17.4", dev_dependency = True)
++bazel_dep(name = "global_proto", version = "2.21.0", dev_dependency = True)
+ git_override(
+     module_name = "global_proto",
+     remote = "git@github.com:mindful-hq/global-proto.git",
+-    tag = "v2.17.4",
++    tag = "v2.21.0",
+ )
+ 
+-bazel_dep(name = "earth_resourcemanager_service_proto", version = "0.7.1", dev_dependency = True)
++bazel_dep(name = "earth_resourcemanager_service_proto", version = "0.7.2", dev_dependency = True)
+ git_override(
+     module_name = "earth_resourcemanager_service_proto",
+     remote = "git@github.com:mindful-hq/earth-resourcemanager-service-proto.git",
+-    tag = "v0.7.1",
++    tag = "v0.7.2",
+ )
+ 
+ bazel_dep(name = "earth_language_service_proto", version = "0.4.0", dev_dependency = True)
+@@ -47,11 +47,11 @@ git_override(
+     tag = "v0.4.0",
+ )
+ 
+-bazel_dep(name = "earth_user_service_proto", version = "0.22.2", dev_dependency = True)
++bazel_dep(name = "earth_user_service_proto", version = "0.22.3", dev_dependency = True)
+ git_override(
+     module_name = "earth_user_service_proto",
+     remote = "git@github.com:mindful-hq/earth-user-service-proto.git",
+-    tag = "v0.22.2",
++    tag = "v0.22.3",
+ )
+ 
+ bazel_dep(name = "earth_email_service_proto", version = "1.6.4", dev_dependency = True)
+@@ -75,11 +75,11 @@ git_override(
+     tag = "v0.4.0",
+ )
+ 
+-bazel_dep(name = "earth_authorization_service_proto", version = "0.5.2", dev_dependency = True)
++bazel_dep(name = "earth_authorization_service_proto", version = "0.6.0", dev_dependency = True)
+ git_override(
+     module_name = "earth_authorization_service_proto",
+     remote = "git@github.com:mindful-hq/earth-authorization-service-proto.git",
+-    tag = "v0.5.2",
++    tag = "v0.6.0",
+ )
+ 
+ ####################################################################
+@@ -87,7 +87,7 @@ git_override(
+ ####################################################################
+ 
+ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+-go_sdk.download(version = "1.24.1")
++go_sdk.download(version = "1.26.2")
+ go_sdk.nogo(nogo = "//:nogo")
+ 
+ ####################################################################
+@@ -104,10 +104,16 @@ use_repo(
+     "com_github_go_sql_driver_mysql",
+     "com_github_google_uuid",
+     "com_github_grpc_ecosystem_go_grpc_middleware_v2",
++    "com_github_pressly_goose_v3",
+     "com_google_cloud_go_longrunning",
+     "com_google_cloud_go_pubsub",
++    "io_ariga_atlas_provider_gorm",
+     "io_gorm_driver_mysql",
+     "io_gorm_gorm",
++    "io_opentelemetry_go_contrib_instrumentation_google_golang_org_grpc_otelgrpc",
++    "io_opentelemetry_go_contrib_propagators_b3",
++    "io_opentelemetry_go_otel",
++    "io_opentelemetry_go_otel_trace",
+     "org_golang_google_genproto_googleapis_rpc",
+     "org_golang_google_grpc",
+     "org_golang_google_protobuf",
+@@ -121,7 +127,7 @@ use_repo(
+ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+ oci.pull(
+     name = "distroless_static",
+-    digest = "sha256:6c8e62544dfb33087ab275c463747c75a5bb634a383af5e91625da882a5fe175",  # nonroot
++    digest = "sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240",  # nonroot
+     image = "gcr.io/distroless/static",
+     platforms = [
+         "linux/amd64",
+diff --git a/cmd/atlas/BUILD.bazel b/cmd/atlas/BUILD.bazel
+new file mode 100644
+index 0000000..2cef829
+--- /dev/null
++++ b/cmd/atlas/BUILD.bazel
+@@ -0,0 +1,30 @@
++load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
++load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations")
++load("@rules_go//go:def.bzl", "go_binary", "go_library")
++
++go_library(
++    name = "atlas_lib",
++    srcs = ["main.go"],
++    importpath = "github.com/mindful-hq/earth-email-service/cmd/atlas",
++    visibility = ["//visibility:private"],
++    deps = [
++        "//internal/database/model/model_v1",
++        "@io_ariga_atlas_provider_gorm//gormschema",
++    ],
++)
++
++go_binary(
++    name = "atlas",
++    embed = [":atlas_lib"],
++    visibility = ["//visibility:public"],
++)
++
++run_binary(
++    name = "atlas_schema",
++    outs = ["schema.sql"],
++    args = [
++        "$(location schema.sql)",
++    ],
++    tool = ":atlas",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/atlas/main.go b/cmd/atlas/main.go
+new file mode 100644
+index 0000000..0a0033e
+--- /dev/null
++++ b/cmd/atlas/main.go
+@@ -0,0 +1,37 @@
++package main
++
++import (
++	"log"
++	"os"
++
++	"ariga.io/atlas-provider-gorm/gormschema"
++	modelv1 "github.com/mindful-hq/earth-email-service/internal/database/model/model_v1"
++)
++
++func main() {
++	var err error
++
++	if len(os.Args) != 2 {
++		log.Fatal("usage: atlas <output_file>")
++	}
++
++	var stmts string
++	if stmts, err = gormschema.New("mysql").Load(
++		new(modelv1.EmailConfig),
++		new(modelv1.EmailTemplate),
++		new(modelv1.Email),
++		new(modelv1.EmailSendEmailOutbox),
++		new(modelv1.OperationSubscription),
++		new(modelv1.Operation),
++	); err != nil {
++		log.Fatal(err)
++	}
++
++	if err = os.WriteFile(
++		os.Args[1],
++		[]byte(stmts),
++		0o644,
++	); err != nil {
++		log.Fatal(err)
++	}
++}
+diff --git a/cmd/earth_email_service/BUILD.bazel b/cmd/earth_email_service/BUILD.bazel
+index b3b75e0..0dceb3e 100644
+--- a/cmd/earth_email_service/BUILD.bazel
++++ b/cmd/earth_email_service/BUILD.bazel
+@@ -21,7 +21,7 @@ go_library(
+     importpath = "github.com/mindful-hq/earth-email-service/cmd/earth_email_service",
+     visibility = ["//visibility:private"],
+     deps = [
+-        "//internal/database/model/model_v1",
++        "//db",
+         "//internal/database/seeder/email/config/config_v1",
+         "//internal/database/seeder/email/email_v1",
+         "//internal/database/seeder/email/template/template_v1",
+@@ -43,6 +43,7 @@ go_library(
+         "@com_github_grpc_ecosystem_go_grpc_middleware_v2//interceptors/recovery",
+         "@com_github_grpc_ecosystem_go_grpc_middleware_v2//interceptors/selector",
+         "@com_github_grpc_ecosystem_go_grpc_middleware_v2//metadata",
++        "@com_github_pressly_goose_v3//:goose",
+         "@com_google_cloud_go_pubsub//:pubsub",
+         "@earth_email_service_proto//mindful/earth/email/config/v1:config",
+         "@earth_email_service_proto//mindful/earth/email/template/v1:template",
+@@ -60,6 +61,11 @@ go_library(
+         "@io_gorm_driver_mysql//:mysql",
+         "@io_gorm_gorm//:gorm",
+         "@io_gorm_gorm//logger",
++        "@io_opentelemetry_go_contrib_instrumentation_google_golang_org_grpc_otelgrpc//:otelgrpc",
++        "@io_opentelemetry_go_contrib_propagators_b3//:b3",
++        "@io_opentelemetry_go_otel//:otel",
++        "@io_opentelemetry_go_otel//propagation",
++        "@io_opentelemetry_go_otel_trace//:trace",
+         "@org_golang_google_grpc//:grpc",
+         "@org_golang_google_grpc//credentials/insecure",
+         "@org_golang_google_grpc//health",
+diff --git a/cmd/earth_email_service/main.go b/cmd/earth_email_service/main.go
+index be0333c..6f6587f 100644
+--- a/cmd/earth_email_service/main.go
++++ b/cmd/earth_email_service/main.go
+@@ -23,7 +23,7 @@ import (
+ 	emailconfigprotov1 "github.com/mindful-hq/earth-email-service-proto/mindful/earth/email/config/v1"
+ 	emailtemplateprotov1 "github.com/mindful-hq/earth-email-service-proto/mindful/earth/email/template/v1"
+ 	emailprotov1 "github.com/mindful-hq/earth-email-service-proto/mindful/earth/email/v1"
+-	modelv1 "github.com/mindful-hq/earth-email-service/internal/database/model/model_v1"
++	atlasdb "github.com/mindful-hq/earth-email-service/db"
+ 	emailconfigseederv1 "github.com/mindful-hq/earth-email-service/internal/database/seeder/email/config/config_v1"
+ 	emailseederv1 "github.com/mindful-hq/earth-email-service/internal/database/seeder/email/email_v1"
+ 	emailtemplateseederv1 "github.com/mindful-hq/earth-email-service/internal/database/seeder/email/template/template_v1"
+@@ -48,6 +48,12 @@ import (
+ 	"github.com/mindful-hq/global-generics/pkg/logger"
+ 	loggerv1 "github.com/mindful-hq/global-generics/pkg/logger/logger_v1"
+ 	globallongrunningprotov1 "github.com/mindful-hq/global-proto/v2/mindful/global/longrunning/v1"
++	"github.com/pressly/goose/v3"
++	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
++	"go.opentelemetry.io/contrib/propagators/b3"
++	"go.opentelemetry.io/otel"
++	"go.opentelemetry.io/otel/propagation"
++	"go.opentelemetry.io/otel/trace"
+ 	"golang.org/x/sync/errgroup"
+ 	"google.golang.org/grpc"
+ 	"google.golang.org/grpc/credentials/insecure"
+@@ -62,6 +68,11 @@ import (
+ func main() {
+ 	var err error
+ 
++	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
++		propagation.TraceContext{},
++		b3.New(),
++	))
++
+ 	var envLoggerDevelopment bool
+ 	if err = envsBool(map[*bool]string{
+ 		&envLoggerDevelopment: "LOGGER_DEVELOPMENT",
+@@ -70,7 +81,9 @@ func main() {
+ 	}
+ 
+ 	var zapLogger *loggerv1.ZapLogger
+-	if zapLogger, err = loggerv1.NewZapLogger(envLoggerDevelopment); err != nil {
++	if zapLogger, err = loggerv1.NewZapLogger(
++		envLoggerDevelopment,
++	); err != nil {
+ 		log.Fatal(err.Error())
+ 	}
+ 
+@@ -130,7 +143,11 @@ func main() {
+ 	var db *gorm.DB
+ 	if db, err = dbConnection(
+ 		gormLogger,
+-		mysql.Open(fmt.Sprintf("%s@tcp(127.0.0.1:3306)/%s?charset=utf8mb4&parseTime=True&loc=UTC", envDbUser, envDbDatabase)),
++		mysql.Open(fmt.Sprintf(
++			"%s@tcp(127.0.0.1:3306)/%s?charset=utf8mb4&parseTime=True&loc=UTC",
++			envDbUser,
++			envDbDatabase,
++		)),
+ 		time.Second*30,
+ 	); err != nil {
+ 		zapLogger.Fatal(err.Error())
+@@ -149,13 +166,22 @@ func main() {
+ 	sqlDb.SetMaxOpenConns(envDbMaxOpenConnections)
+ 	sqlDb.SetConnMaxLifetime(time.Hour)
+ 
+-	if err = db.AutoMigrate(
+-		new(modelv1.EmailConfig),
+-		new(modelv1.EmailTemplate),
+-		new(modelv1.Email),
+-		new(modelv1.EmailSendEmailOutbox),
+-		new(modelv1.OperationSubscription),
+-		new(modelv1.Operation),
++	ctx, ctxCancel := context.WithTimeout(context.Background(), 10*time.Second)
++	defer ctxCancel()
++
++	goose.SetBaseFS(atlasdb.Migrations)
++	goose.SetLogger(loggerv1.NewGooseLogger(zapLogger))
++
++	if err = goose.SetDialect(
++		"mysql",
++	); err != nil {
++		zapLogger.Fatal(err.Error())
++	}
++
++	if err = goose.UpContext(
++		ctx,
++		sqlDb,
++		"atlas_migrations_out",
+ 	); err != nil {
+ 		zapLogger.Fatal(err.Error())
+ 	}
+@@ -219,9 +245,6 @@ func main() {
+ 		earthLanguageServiceConn,
+ 	)
+ 
+-	ctx, ctxCancel := context.WithTimeout(context.Background(), 10*time.Second)
+-	defer ctxCancel()
+-
+ 	var googlePubSubClient *googlepubsub.Client
+ 	if googlePubSubClient, err = googlepubsub.NewClient(
+ 		ctx,
+@@ -277,6 +300,7 @@ func main() {
+ 	}
+ 
+ 	grpcServer := grpc.NewServer(
++		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+ 		grpc.ChainUnaryInterceptor(
+ 			selector.UnaryServerInterceptor(
+ 				logging.UnaryServerInterceptor(interceptorLogger, grpcLoggerOpts...),
+@@ -336,7 +360,7 @@ func main() {
+ 		}
+ 	}()
+ 
+-	zapLogger.Info(fmt.Sprintf("grpc papa1234 server started on port %s", envGrpcPort))
++	zapLogger.Info(fmt.Sprintf("grpc server started on port %s", envGrpcPort))
+ 
+ 	for _, pubSubSubscription := range []interface {
+ 		GetSubscriptionId() string
+@@ -392,7 +416,7 @@ func main() {
+ 			defer func() {
+ 				if r := recover(); r != nil {
+ 					zapLogger.Error(fmt.Errorf("%v", r).Error())
+-					err = statusError.InternalError().Err()
++					err = fmt.Errorf("%v", r)
+ 				}
+ 			}()
+ 
+@@ -411,12 +435,11 @@ func main() {
+ 	for _, outbox := range []outbox.Outbox{
+ 		emailSendEmailOutbox,
+ 	} {
+-		outbox := outbox // https://github.com/bazel-contrib/rules_go/issues/3924
+ 		groupOutboxes.Go(func() (err error) {
+ 			defer func() {
+ 				if r := recover(); r != nil {
+ 					zapLogger.Error(fmt.Errorf("%v", r).Error())
+-					err = statusError.InternalError().Err()
++					err = fmt.Errorf("%v", r)
+ 				}
+ 			}()
+ 
+@@ -473,7 +496,7 @@ func envsInt(envIndex map[*int]string) error {
+ 			return fmt.Errorf("env not exists: %s", envName)
+ 		}
+ 
+-		if *env, err = strconv.Atoi(envTmp); !ok {
++		if *env, err = strconv.Atoi(envTmp); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -490,7 +513,7 @@ func envsBool(envIndex map[*bool]string) error {
+ 			return fmt.Errorf("env not exists: %s", envName)
+ 		}
+ 
+-		if *env, err = strconv.ParseBool(envTmp); !ok {
++		if *env, err = strconv.ParseBool(envTmp); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -525,15 +548,20 @@ func dbConnection(gormLogger gormlogger.Interface, dialector gorm.Dialector, tim
+ }
+ 
+ func loggerFieldsFromContext(ctx context.Context) logger.Fields {
+-	md := metadata.ExtractIncoming(ctx)
+-	fieldIndex := map[string]string{
++	traceIdLogKey := "grpc.trace_id"
++	mdIndex := map[string]string{
+ 		"x-mindful-email": "grpc.email",
+ 		"x-request-id":    "grpc.request_id",
+-		"x-b3-traceid":    "grpc.trace_id",
+ 	}
+ 
+-	fields := make(logger.Fields, 0, len(fieldIndex)*2)
+-	for mdKey, logKey := range fieldIndex {
++	fields := make(logger.Fields, 0, 2+len(mdIndex)*2)
++
++	if spanCtx := trace.SpanContextFromContext(ctx); spanCtx.HasTraceID() {
++		fields = append(fields, traceIdLogKey, spanCtx.TraceID().String())
++	}
++
++	md := metadata.ExtractIncoming(ctx)
++	for mdKey, logKey := range mdIndex {
+ 		if mdValue := md.Get(mdKey); mdValue != "" {
+ 			fields = append(fields, logKey, mdValue)
+ 		}
+diff --git a/cmd/earth_emailauthorization_service/BUILD.bazel b/cmd/earth_emailauthorization_service/BUILD.bazel
+index 6ff2811..6ab2ce1 100644
+--- a/cmd/earth_emailauthorization_service/BUILD.bazel
++++ b/cmd/earth_emailauthorization_service/BUILD.bazel
+@@ -32,6 +32,11 @@ go_library(
+         "@global_generics//pkg/grpc/status_error/status_error_v1",
+         "@global_generics//pkg/logger",
+         "@global_generics//pkg/logger/logger_v1",
++        "@io_opentelemetry_go_contrib_instrumentation_google_golang_org_grpc_otelgrpc//:otelgrpc",
++        "@io_opentelemetry_go_contrib_propagators_b3//:b3",
++        "@io_opentelemetry_go_otel//:otel",
++        "@io_opentelemetry_go_otel//propagation",
++        "@io_opentelemetry_go_otel_trace//:trace",
+         "@org_golang_google_grpc//:grpc",
+         "@org_golang_google_grpc//credentials/insecure",
+         "@org_golang_google_grpc//health",
+diff --git a/cmd/earth_emailauthorization_service/main.go b/cmd/earth_emailauthorization_service/main.go
+index d75d82a..e5cc845 100644
+--- a/cmd/earth_emailauthorization_service/main.go
++++ b/cmd/earth_emailauthorization_service/main.go
+@@ -25,6 +25,11 @@ import (
+ 	statuserrorv1 "github.com/mindful-hq/global-generics/pkg/grpc/status_error/status_error_v1"
+ 	logger "github.com/mindful-hq/global-generics/pkg/logger"
+ 	loggerv1 "github.com/mindful-hq/global-generics/pkg/logger/logger_v1"
++	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
++	"go.opentelemetry.io/contrib/propagators/b3"
++	"go.opentelemetry.io/otel"
++	"go.opentelemetry.io/otel/propagation"
++	"go.opentelemetry.io/otel/trace"
+ 	"google.golang.org/grpc"
+ 	"google.golang.org/grpc/credentials/insecure"
+ 	"google.golang.org/grpc/health"
+@@ -34,6 +39,11 @@ import (
+ func main() {
+ 	var err error
+ 
++	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
++		propagation.TraceContext{},
++		b3.New(),
++	))
++
+ 	var envLoggerDevelopment bool
+ 	if err = envsBool(map[*bool]string{
+ 		&envLoggerDevelopment: "LOGGER_DEVELOPMENT",
+@@ -42,7 +52,9 @@ func main() {
+ 	}
+ 
+ 	var zapLogger *loggerv1.ZapLogger
+-	if zapLogger, err = loggerv1.NewZapLogger(envLoggerDevelopment); err != nil {
++	if zapLogger, err = loggerv1.NewZapLogger(
++		envLoggerDevelopment,
++	); err != nil {
+ 		log.Fatal(err.Error())
+ 	}
+ 
+@@ -96,6 +108,7 @@ func main() {
+ 	}
+ 
+ 	grpcServer := grpc.NewServer(
++		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+ 		grpc.ChainUnaryInterceptor(
+ 			selector.UnaryServerInterceptor(
+ 				logging.UnaryServerInterceptor(interceptorLogger, grpcLoggerOpts...),
+@@ -201,7 +214,7 @@ func envsBool(envIndex map[*bool]string) error {
+ 			return fmt.Errorf("env not exists: %s", envName)
+ 		}
+ 
+-		if *env, err = strconv.ParseBool(envTmp); !ok {
++		if *env, err = strconv.ParseBool(envTmp); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -210,13 +223,20 @@ func envsBool(envIndex map[*bool]string) error {
+ }
+ 
+ func loggerFieldsFromContext(ctx context.Context) logger.Fields {
+-	md := metadata.ExtractIncoming(ctx)
+-	fieldIndex := map[string]string{
+-		"x-b3-traceid": "grpc.trace_id",
++	traceIdLogKey := "grpc.trace_id"
++	mdIndex := map[string]string{
++		"x-mindful-email": "grpc.email",
++		"x-request-id":    "grpc.request_id",
+ 	}
+ 
+-	fields := make(logger.Fields, 0, len(fieldIndex)*2)
+-	for mdKey, logKey := range fieldIndex {
++	fields := make(logger.Fields, 0, 2+len(mdIndex)*2)
++
++	if spanCtx := trace.SpanContextFromContext(ctx); spanCtx.HasTraceID() {
++		fields = append(fields, traceIdLogKey, spanCtx.TraceID().String())
++	}
++
++	md := metadata.ExtractIncoming(ctx)
++	for mdKey, logKey := range mdIndex {
+ 		if mdValue := md.Get(mdKey); mdValue != "" {
+ 			fields = append(fields, logKey, mdValue)
+ 		}
+diff --git a/db/BUILD.bazel b/db/BUILD.bazel
+new file mode 100644
+index 0000000..d1f1111
+--- /dev/null
++++ b/db/BUILD.bazel
+@@ -0,0 +1,38 @@
++load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
++load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations", "atlas_migrations_test")
++load("@rules_go//go:def.bzl", "go_library")
++
++atlas_migrations(
++    name = "atlas_migrations",
++    migrations = glob(
++        [
++            "migrations/*.sql",
++            "migrations/atlas.sum",
++        ],
++        allow_empty = True,
++    ),
++    schema = "//cmd/atlas:atlas_schema",
++)
++
++# gazelle:exclude db.go
++# keep
++go_library(
++    name = "db",
++    srcs = ["db.go"],
++    embedsrcs = [":atlas_migrations"],
++    importpath = "github.com/mindful-hq/earth-email-service/db",
++    visibility = ["//cmd/earth_email_service:__pkg__"],
++)
++
++atlas_migrations_test(
++    name = "atlas_migrations_test",
++    migrations = ":atlas_migrations",
++)
++
++write_source_files(
++    name = "atlas_migration_sources",
++    files = {
++        "migrations": ":atlas_migrations",
++    },
++    visibility = ["//visibility:public"],
++)
+diff --git a/db/db.go b/db/db.go
+new file mode 100644
+index 0000000..e304281
+--- /dev/null
++++ b/db/db.go
+@@ -0,0 +1,6 @@
++package db
++
++import "embed"
++
++//go:embed atlas_migrations_out/*.sql
++var Migrations embed.FS
+diff --git a/go.mod b/go.mod
+index d010d8c..b8289e7 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,74 +1,108 @@
+ module github.com/mindful-hq/earth-email-service
+ 
+-go 1.24.0
+-
+-toolchain go1.24.1
++go 1.26.2
+ 
+ require (
++	ariga.io/atlas-provider-gorm v0.6.0
+ 	buf.build/go/protovalidate v1.0.0
+ 	cloud.google.com/go/longrunning v0.6.7
+-	cloud.google.com/go/pubsub v1.49.0
+-	github.com/envoyproxy/go-control-plane/envoy v1.32.4
+-	github.com/go-sql-driver/mysql v1.9.2
++	cloud.google.com/go/pubsub v1.50.0
++	github.com/envoyproxy/go-control-plane/envoy v1.36.0
++	github.com/go-sql-driver/mysql v1.9.3
+ 	github.com/google/uuid v1.6.0
+ 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2
+-	github.com/mindful-hq/earth-authorization-service-proto v0.5.2
++	github.com/mindful-hq/earth-authorization-service-proto v0.6.0
+ 	github.com/mindful-hq/earth-email-service-internal-proto v0.4.2
+ 	github.com/mindful-hq/earth-email-service-proto v1.6.4
+ 	github.com/mindful-hq/earth-emailmailgun-service-internal-proto v0.4.0
+ 	github.com/mindful-hq/earth-language-service-proto v0.4.0
+-	github.com/mindful-hq/earth-resourcemanager-service-proto v0.7.1
+-	github.com/mindful-hq/earth-user-service-proto v0.22.2
+-	github.com/mindful-hq/global-generics v0.34.1
+-	github.com/mindful-hq/global-proto/v2 v2.17.5
+-	golang.org/x/sync v0.17.0
+-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b
+-	google.golang.org/grpc v1.74.2
+-	google.golang.org/protobuf v1.36.9
+-	gorm.io/driver/mysql v1.5.7
+-	gorm.io/gorm v1.30.0
++	github.com/mindful-hq/earth-resourcemanager-service-proto v0.7.2
++	github.com/mindful-hq/earth-user-service-proto v0.22.3
++	github.com/mindful-hq/global-generics v0.38.11
++	github.com/mindful-hq/global-proto/v2 v2.21.0
++	github.com/pressly/goose/v3 v3.27.1
++	go.opentelemetry.io/contrib/propagators/b3 v1.43.0
++	golang.org/x/sync v0.20.0
++	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529
++	google.golang.org/grpc v1.80.0
++	google.golang.org/protobuf v1.36.11
++	gorm.io/driver/mysql v1.6.0
++	gorm.io/gorm v1.31.1
++)
++
++require (
++	ariga.io/atlas v0.36.2-0.20250806044935-5bb51a0a956e // indirect
++	cloud.google.com/go/monitoring v1.24.2 // indirect
++	cloud.google.com/go/pubsub/v2 v2.0.0 // indirect
++	cloud.google.com/go/spanner v1.84.1 // indirect
++	github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp v1.5.3 // indirect
++	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0 // indirect
++	github.com/cespare/xxhash/v2 v2.3.0 // indirect
++	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
++	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
++	github.com/golang-sql/sqlexp v0.1.0 // indirect
++	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
++	github.com/googleapis/go-gorm-spanner v1.8.6 // indirect
++	github.com/googleapis/go-sql-spanner v1.17.0 // indirect
++	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
++	github.com/jackc/pgpassfile v1.0.0 // indirect
++	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
++	github.com/jackc/pgx/v5 v5.9.2 // indirect
++	github.com/jackc/puddle/v2 v2.2.2 // indirect
++	github.com/mattn/go-sqlite3 v1.14.28 // indirect
++	github.com/mfridman/interpolate v0.0.2 // indirect
++	github.com/microsoft/go-mssqldb v1.9.8 // indirect
++	github.com/sethvargo/go-retry v0.3.0 // indirect
++	github.com/shopspring/decimal v1.4.0 // indirect
++	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
++	go.opentelemetry.io/contrib/detectors/gcp v1.39.0 // indirect
++	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
++	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
++	gorm.io/driver/postgres v1.5.11 // indirect
++	gorm.io/driver/sqlite v1.6.0 // indirect
++	gorm.io/driver/sqlserver v1.5.4 // indirect
+ )
+ 
+ require (
+-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.9-20250912141014-52f32327d4b0.1 // indirect
+-	cel.dev/expr v0.24.0 // indirect
+-	cloud.google.com/go v0.120.0 // indirect
+-	cloud.google.com/go/auth v0.16.0 // indirect
++	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 // indirect
++	cel.dev/expr v0.25.1 // indirect
++	cloud.google.com/go v0.121.6 // indirect
++	cloud.google.com/go/auth v0.16.4 // indirect
+ 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
+-	cloud.google.com/go/compute/metadata v0.7.0 // indirect
++	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+ 	cloud.google.com/go/iam v1.5.2 // indirect
+-	filippo.io/edwards25519 v1.1.0 // indirect
++	filippo.io/edwards25519 v1.2.0 // indirect
+ 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+-	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
+-	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
++	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5 // indirect
++	github.com/envoyproxy/protoc-gen-validate v1.3.0 // indirect
+ 	github.com/felixge/httpsnoop v1.0.4 // indirect
+ 	github.com/go-logr/logr v1.4.3 // indirect
+ 	github.com/go-logr/stdr v1.2.2 // indirect
+ 	github.com/google/cel-go v0.26.1 // indirect
+ 	github.com/google/s2a-go v0.1.9 // indirect
+ 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
+-	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
++	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
+ 	github.com/jinzhu/inflection v1.0.0 // indirect
+ 	github.com/jinzhu/now v1.1.5 // indirect
+ 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
+ 	github.com/stoewer/go-strcase v1.3.1 // indirect
+ 	go.opencensus.io v0.24.0 // indirect
+-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect
+-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
+-	go.opentelemetry.io/otel v1.36.0 // indirect
+-	go.opentelemetry.io/otel/metric v1.36.0 // indirect
+-	go.opentelemetry.io/otel/trace v1.36.0 // indirect
++	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
++	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0
++	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
++	go.opentelemetry.io/otel v1.43.0
++	go.opentelemetry.io/otel/metric v1.43.0 // indirect
++	go.opentelemetry.io/otel/trace v1.43.0
+ 	go.uber.org/multierr v1.11.0 // indirect
+ 	go.uber.org/zap v1.27.0 // indirect
+-	golang.org/x/crypto v0.40.0 // indirect
+-	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
+-	golang.org/x/net v0.42.0 // indirect
+-	golang.org/x/oauth2 v0.30.0 // indirect
+-	golang.org/x/sys v0.34.0 // indirect
+-	golang.org/x/text v0.27.0 // indirect
+-	golang.org/x/time v0.11.0 // indirect
+-	google.golang.org/api v0.229.0 // indirect
+-	google.golang.org/genproto v0.0.0-20250715232539-7130f93afb79 // indirect
+-	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
++	golang.org/x/crypto v0.50.0 // indirect
++	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
++	golang.org/x/net v0.53.0 // indirect
++	golang.org/x/oauth2 v0.34.0 // indirect
++	golang.org/x/sys v0.43.0 // indirect
++	golang.org/x/text v0.36.0 // indirect
++	golang.org/x/time v0.12.0 // indirect
++	google.golang.org/api v0.247.0 // indirect
++	google.golang.org/genproto v0.0.0-20250804133106-a7a43d27e69b // indirect
++	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
+ )
+diff --git a/internal/envoy/service/auth/auth_v3/external_auth.go b/internal/envoy/service/auth/auth_v3/external_auth.go
+index 3dccac4..0de6171 100644
+--- a/internal/envoy/service/auth/auth_v3/external_auth.go
++++ b/internal/envoy/service/auth/auth_v3/external_auth.go
+@@ -87,7 +87,7 @@ func (service *ExternalAuthService) Check(
+ 	// Allow OPTIONS requests from the ingressgateway.
+ 	// Options requests are used for CORS preflight checks and don't have a authorization context.
+ 	if sourcePrincipal == service.ingressgatewayPrincipal && method == http.MethodOptions {
+-		return service.allowed(), nil
++		return service.allowed(ctx), nil
+ 	}
+ 
+ 	var body []byte
+@@ -99,7 +99,7 @@ func (service *ExternalAuthService) Check(
+ 			fmt.Sprintf("proto extract: %s", err.Error()),
+ 			logging.ExtractFields(ctx)...,
+ 		)
+-		return service.denied(), err
++		return service.denied(ctx), err
+ 	}
+ 
+ 	switch {
+@@ -111,10 +111,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.config.v1.EmailConfigService/UpdateEmailConfig" && method == http.MethodPost:
+ 		if allowed, err = service.emailConfigServiceAuthorization.UpdateEmailConfig(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -123,10 +123,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.global.longrunning.v1.OperationService/GetOperation" && method == http.MethodPost:
+ 		if allowed, err = service.operationServiceAuthorization.GetOperation(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -135,10 +135,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.global.longrunning.v1.OperationService/ListOperations" && method == http.MethodPost:
+ 		if allowed, err = service.operationServiceAuthorization.ListOperations(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -147,10 +147,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/GetEmail" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.GetEmail(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -159,10 +159,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/BatchGetEmails" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.BatchGetEmails(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -171,10 +171,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/ListEmails" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.ListEmails(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -183,10 +183,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/CreateEmail" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.CreateEmail(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -195,10 +195,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/UpdateEmail" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.UpdateEmail(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -207,10 +207,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/DeleteEmail" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.DeleteEmail(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -219,10 +219,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.v1.EmailService/SendEmail" && method == http.MethodPost:
+ 		if allowed, err = service.emailServiceAuthorization.SendEmail(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -231,10 +231,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/GetEmailTemplate" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.GetEmailTemplate(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -243,10 +243,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/BatchGetEmailTemplates" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.BatchGetEmailTemplates(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -255,10 +255,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/ListEmailTemplates" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.ListEmailTemplates(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -267,10 +267,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/CreateEmailTemplate" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.CreateEmailTemplate(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -279,10 +279,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/UpdateEmailTemplate" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.UpdateEmailTemplate(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -291,10 +291,10 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	case path == "/mindful.earth.email.template.v1.EmailTemplateService/DeleteEmailTemplate" && method == http.MethodPost:
+ 		if allowed, err = service.emailTemplateServiceAuthorization.DeleteEmailTemplate(
+ 			ctx, sourcePrincipal, body, iss, tenant, account,
+@@ -303,12 +303,12 @@ func (service *ExternalAuthService) Check(
+ 				err.Error(),
+ 				logging.ExtractFields(ctx)...,
+ 			)
+-			return service.denied(), nil
++			return service.denied(ctx), nil
+ 		}
+ 
+-		return service.response(allowed), nil
++		return service.response(ctx, allowed), nil
+ 	default:
+-		return service.denied(), nil
++		return service.denied(ctx), nil
+ 	}
+ }
+ 
+@@ -357,16 +357,19 @@ func extractProtoMessage(
+ }
+ 
+ func (service *ExternalAuthService) response(
++	ctx context.Context,
+ 	allowed bool,
+ ) *authprotov3.CheckResponse {
+ 	if allowed {
+-		return service.allowed()
++		return service.allowed(ctx)
+ 	}
+ 
+-	return service.denied()
++	return service.denied(ctx)
+ }
+ 
+-func (service *ExternalAuthService) allowed() *authprotov3.CheckResponse {
++func (service *ExternalAuthService) allowed(
++	ctx context.Context,
++) *authprotov3.CheckResponse {
+ 	return &authprotov3.CheckResponse{
+ 		HttpResponse: &authprotov3.CheckResponse_OkResponse{
+ 			OkResponse: &authprotov3.OkHttpResponse{},
+@@ -375,7 +378,9 @@ func (service *ExternalAuthService) allowed() *authprotov3.CheckResponse {
+ 	}
+ }
+ 
+-func (service *ExternalAuthService) denied() *authprotov3.CheckResponse {
++func (service *ExternalAuthService) denied(
++	ctx context.Context,
++) *authprotov3.CheckResponse {
+ 	return &authprotov3.CheckResponse{
+ 		HttpResponse: &authprotov3.CheckResponse_DeniedResponse{
+ 			DeniedResponse: &authprotov3.DeniedHttpResponse{
+@@ -384,6 +389,7 @@ func (service *ExternalAuthService) denied() *authprotov3.CheckResponse {
+ 			},
+ 		},
+ 		Status: service.statusError.Error(
++			ctx,
+ 			codes.PermissionDenied,
+ 			"UNAUTHORIZED",
+ 			"Access Denied",
+diff --git a/internal/service/email/config/config_v1/email_config.go b/internal/service/email/config/config_v1/email_config.go
+index 79920b6..c5b24cf 100644
+--- a/internal/service/email/config/config_v1/email_config.go
++++ b/internal/service/email/config/config_v1/email_config.go
+@@ -86,7 +86,10 @@ func (service *EmailConfigService) GetEmailConfig(
+ 
+ 	var projectRid string
+ 	if projectRid, err = emailconfigresourcev1.ParseEmailConfigName(req.GetName()); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetName(),
++		).Err()
+ 	}
+ 
+ 	var fieldMasks []fieldmask.FieldMask
+@@ -102,13 +105,13 @@ func (service *EmailConfigService) GetEmailConfig(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -122,7 +125,7 @@ func (service *EmailConfigService) GetEmailConfig(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -136,10 +139,13 @@ func (service *EmailConfigService) GetEmailConfig(
+ 		filters,
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email emailConfig repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -148,7 +154,7 @@ func (service *EmailConfigService) GetEmailConfig(
+ 	if emailConfigProto, err = emailConfig.ToProto(
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -176,7 +182,10 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 	if projectRid, err = emailconfigresourcev1.ParseEmailConfigName(
+ 		req.GetEmailConfig().GetName(),
+ 	); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetEmailConfig().GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetEmailConfig().GetName(),
++		).Err()
+ 	}
+ 
+ 	var fieldMasks []fieldmask.FieldMask
+@@ -192,13 +201,13 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		req.GetUpdateMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -208,7 +217,10 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		req.GetEmailConfig(),
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InvalidArgumentError(err.Error())
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		)
+ 		service.logger.Info(fmt.Sprintf("from proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -227,7 +239,7 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -242,11 +254,14 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.NotFoundError(req.GetEmailConfig().GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetEmailConfig().GetName(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email emailConfig repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -256,14 +271,17 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		make(map[fieldmask.FieldMask]bool),
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if req.GetEmailConfig().GetEtag() != emailConfigEtagProto.GetEtag() {
+ 		tx.Rollback()
+-		statusErr := service.statusError.EtagMismatchError(req.GetEmailConfig().GetEtag())
++		statusErr := service.statusError.EtagMismatchError(
++			ctx,
++			req.GetEmailConfig().GetEtag(),
++		)
+ 		service.logger.Info("etag mismatch", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -272,7 +290,7 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		emailConfigEtag,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("patch: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -284,7 +302,7 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		nil,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email config repository update: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -294,13 +312,13 @@ func (service *EmailConfigService) UpdateEmailConfig(
+ 		fieldMaskIndex,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+diff --git a/internal/service/email/email_v1/email.go b/internal/service/email/email_v1/email.go
+index eae0757..440c17c 100644
+--- a/internal/service/email/email_v1/email.go
++++ b/internal/service/email/email_v1/email.go
+@@ -148,7 +148,10 @@ func (service *EmailService) GetEmail(
+ 
+ 	var projectRid, rid string
+ 	if projectRid, rid, err = emailresourcev1.ParseEmailName(req.GetName()); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetName(),
++		).Err()
+ 	}
+ 
+ 	var fieldMasks []fieldmask.FieldMask
+@@ -164,13 +167,13 @@ func (service *EmailService) GetEmail(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -184,7 +187,7 @@ func (service *EmailService) GetEmail(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -198,10 +201,13 @@ func (service *EmailService) GetEmail(
+ 		filters,
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -210,7 +216,7 @@ func (service *EmailService) GetEmail(
+ 	if emailProto, err = email.ToProto(
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -266,7 +272,10 @@ func (service *EmailService) BatchGetEmails(
+ 	if parentProjectRid, err = resourcemanagerresourcev1.ParseProjectName(
+ 		req.GetParent(),
+ 	); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	projectRids := make([]string, len(req.GetNames()))
+@@ -276,11 +285,17 @@ func (service *EmailService) BatchGetEmails(
+ 		if projectRid, rid, err = emailresourcev1.ParseEmailName(
+ 			reqName,
+ 		); err != nil {
+-			return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++			return nil, service.statusError.InvalidArgumentError(
++				ctx,
++				err.Error(),
++			).Err()
+ 		}
+ 
+ 		if parentProjectRid != projectRid {
+-			return nil, service.statusError.ParentMismatchError(reqName, req.GetParent()).Err()
++			return nil, service.statusError.ParentMismatchError(
++				ctx,
++				reqName, req.GetParent(),
++			).Err()
+ 		}
+ 
+ 		projectRids[i] = projectRid
+@@ -300,13 +315,13 @@ func (service *EmailService) BatchGetEmails(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -320,7 +335,7 @@ func (service *EmailService) BatchGetEmails(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -333,7 +348,7 @@ func (service *EmailService) BatchGetEmails(
+ 		fieldMasks,
+ 		filters,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository batch get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -342,7 +357,7 @@ func (service *EmailService) BatchGetEmails(
+ 	for _, email := range emails {
+ 		var emailName string
+ 		if emailName, err = email.ToProtoName(); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto name: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -355,11 +370,14 @@ func (service *EmailService) BatchGetEmails(
+ 		var email *modelv1.Email
+ 		var ok bool
+ 		if email, ok = emailIndex[reqName]; !ok {
+-			return nil, service.statusError.NotFoundError(reqName).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				reqName,
++			).Err()
+ 		}
+ 
+ 		if emailProtos[i], err = email.ToProto(fieldMaskIndex); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -424,7 +442,10 @@ func (service *EmailService) ListEmails(
+ 	if parentProjectRid, err = resourcemanagerresourcev1.ParseProjectName(
+ 		req.GetParent(),
+ 	); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	var pageSize int32
+@@ -436,7 +457,7 @@ func (service *EmailService) ListEmails(
+ 	if reqHash, err = service.pageToken.Hash(&emailprotov1.ListEmailsRequest{
+ 		Parent: req.GetParent(), OrderBy: req.GetOrderBy(), Filter: req.GetFilter(),
+ 	}); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("page token hash: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -446,18 +467,21 @@ func (service *EmailService) ListEmails(
+ 		reqPageToken = new(emailprotov1.ListEmailsRequestPageToken)
+ 		if err = service.pageToken.Decode(reqPageToken, req.GetPageToken()); err != nil {
+ 			if err == pagetokenv1.ErrPageTokenCorruption {
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+ 
+ 		if protovalidate.Validate(reqPageToken) != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -465,15 +489,21 @@ func (service *EmailService) ListEmails(
+ 		if err = service.pageToken.Validate(reqPageToken, reqHash); err != nil {
+ 			switch err {
+ 			case pagetokenv1.ErrPageTokenExpiry:
+-				statusErr := service.statusError.PageTokenExpiryError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenExpiryError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			case pagetokenv1.ErrPageTokenHashMismatch:
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			default:
+-				statusErr := service.statusError.InternalError()
++				statusErr := service.statusError.InternalError(ctx)
+ 				service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+@@ -487,14 +517,14 @@ func (service *EmailService) ListEmails(
+ 
+ 	var reqPaginationField fieldmask.FieldMask
+ 	if reqPaginationField, err = reqPagination.Field(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	var reqPaginationFieldValue any
+ 	if reqPaginationFieldValue, err = reqPagination.FieldValue(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -512,13 +542,13 @@ func (service *EmailService) ListEmails(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -537,7 +567,7 @@ func (service *EmailService) ListEmails(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -555,7 +585,7 @@ func (service *EmailService) ListEmails(
+ 		reqPaginationField,
+ 		reqPaginationFieldValue,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository list: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -563,7 +593,7 @@ func (service *EmailService) ListEmails(
+ 	emailProtos := make([]*emailprotov1.Email, len(emails))
+ 	for i, email := range emails {
+ 		if emailProtos[i], err = email.ToProto(fieldMaskIndex); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -584,7 +614,7 @@ func (service *EmailService) ListEmails(
+ 	}
+ 
+ 	if nextPageToken.EmailId = int64(emails[len(emails)-1].GetId()); emails[len(emails)-1].GetId() == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: id required", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -594,7 +624,7 @@ func (service *EmailService) ListEmails(
+ 		emailprotov1.LIST_EMAILS_REQUEST_ORDER_TYPE_LIST_EMAILS_REQUEST_ORDER_TYPE_CREATE_TIME:
+ 		var nextPageTokenCreatedAt time.Time
+ 		if nextPageTokenCreatedAt = emails[len(emails)-1].GetCreatedAt(); nextPageTokenCreatedAt.IsZero() {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error("next page token: created at required", logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -604,7 +634,7 @@ func (service *EmailService) ListEmails(
+ 	case emailprotov1.LIST_EMAILS_REQUEST_ORDER_TYPE_LIST_EMAILS_REQUEST_ORDER_TYPE_UPDATE_TIME:
+ 		var nextPageTokenUpdatedAt time.Time
+ 		if nextPageTokenUpdatedAt = emails[len(emails)-1].GetUpdatedAt(); nextPageTokenUpdatedAt.IsZero() {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error("next page token: updated at required", logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -612,13 +642,13 @@ func (service *EmailService) ListEmails(
+ 			UpdateTime: timestamppb.New(nextPageTokenUpdatedAt),
+ 		}
+ 	default:
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: unsupported order type", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if resp.NextPageToken, err = service.pageToken.Encode(nextPageToken); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("next page token encode: %s", err.Error()), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -662,13 +692,13 @@ func (service *EmailService) CreateEmail(
+ 		},
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -680,7 +710,10 @@ func (service *EmailService) CreateEmail(
+ 		req.GetEmail(),
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InvalidArgumentError(err.Error())
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		)
+ 		service.logger.Info(fmt.Sprintf("from proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -707,7 +740,7 @@ func (service *EmailService) CreateEmail(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -721,6 +754,7 @@ func (service *EmailService) CreateEmail(
+ 		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+ 			tx.Rollback()
+ 			statusErr := service.statusError.AlreadyExistsError(
++				ctx,
+ 				emailresourcev1.EmailName(false, email.GetProjectRid(), email.GetRid()),
+ 			)
+ 			service.logger.Info(fmt.Sprintf("email repository create: %s", err), logging.ExtractFields(ctx)...)
+@@ -728,7 +762,7 @@ func (service *EmailService) CreateEmail(
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository create: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -738,13 +772,13 @@ func (service *EmailService) CreateEmail(
+ 		fieldMaskIndex,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -781,13 +815,13 @@ func (service *EmailService) UpdateEmail(
+ 		req.GetUpdateMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -799,7 +833,10 @@ func (service *EmailService) UpdateEmail(
+ 		req.GetEmail(),
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InvalidArgumentError(err.Error())
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		)
+ 		service.logger.Info(fmt.Sprintf("from proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -821,7 +858,7 @@ func (service *EmailService) UpdateEmail(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -836,11 +873,14 @@ func (service *EmailService) UpdateEmail(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.NotFoundError(req.GetEmail().GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetEmail().GetName(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -850,14 +890,17 @@ func (service *EmailService) UpdateEmail(
+ 		make(map[fieldmask.FieldMask]bool),
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if req.GetEmail().GetEtag() != emailEtagProto.GetEtag() {
+ 		tx.Rollback()
+-		statusErr := service.statusError.EtagMismatchError(req.GetEmail().GetEtag())
++		statusErr := service.statusError.EtagMismatchError(
++			ctx,
++			req.GetEmail().GetEtag(),
++		)
+ 		service.logger.Info("etag mismatch", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -866,7 +909,7 @@ func (service *EmailService) UpdateEmail(
+ 		emailEtag,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("patch: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -878,7 +921,7 @@ func (service *EmailService) UpdateEmail(
+ 		nil,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository update: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -888,13 +931,13 @@ func (service *EmailService) UpdateEmail(
+ 		fieldMaskIndex,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -916,7 +959,10 @@ func (service *EmailService) DeleteEmail(
+ 	if projectRid, rid, err = emailresourcev1.ParseEmailName(
+ 		req.GetName(),
+ 	); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	var filters []filter.Filter = []filter.Filter{
+@@ -936,7 +982,7 @@ func (service *EmailService) DeleteEmail(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -951,11 +997,14 @@ func (service *EmailService) DeleteEmail(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -965,14 +1014,17 @@ func (service *EmailService) DeleteEmail(
+ 		make(map[fieldmask.FieldMask]bool),
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if req.GetEtag() != emailEtagProto.GetEtag() {
+ 		tx.Rollback()
+-		statusErr := service.statusError.EtagMismatchError(req.GetEtag())
++		statusErr := service.statusError.EtagMismatchError(
++			ctx,
++			req.GetEtag(),
++		)
+ 		service.logger.Info("etag mismatch", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -982,7 +1034,7 @@ func (service *EmailService) DeleteEmail(
+ 		emailEtag,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("patch: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -993,13 +1045,13 @@ func (service *EmailService) DeleteEmail(
+ 		nil,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository delete: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1017,7 +1069,10 @@ func (service *EmailService) SendEmail(
+ 	if projectRid, rid, err = emailresourcev1.ParseEmailName(
+ 		req.GetName(),
+ 	); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	if _, ok := req.GetRecipient().(*emailprotov1.SendEmailRequest_User); ok {
+@@ -1025,11 +1080,15 @@ func (service *EmailService) SendEmail(
+ 		if userProjectRid, _, err = userresourcev1.ParseUserName(
+ 			req.GetUser(),
+ 		); err != nil {
+-			return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++			return nil, service.statusError.InvalidArgumentError(
++				ctx,
++				err.Error(),
++			).Err()
+ 		}
+ 
+ 		if userProjectRid != projectRid {
+ 			statusErr := service.statusError.ParentMismatchError(
++				ctx,
+ 				req.GetUser(),
+ 				resourcemanagerresourcev1.ProjectName(false, projectRid),
+ 			)
+@@ -1047,7 +1106,7 @@ func (service *EmailService) SendEmail(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1060,7 +1119,7 @@ func (service *EmailService) SendEmail(
+ 		defer func() {
+ 			if r := recover(); r != nil {
+ 				service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-				err = service.statusError.InternalError().Err()
++				err = service.statusError.InternalError(ctx).Err()
+ 			}
+ 		}()
+ 
+@@ -1085,10 +1144,13 @@ func (service *EmailService) SendEmail(
+ 			},
+ 		); err != nil {
+ 			if errors.Is(err, gorm.ErrRecordNotFound) {
+-				return service.statusError.NotFoundError(req.GetName()).Err()
++				return service.statusError.NotFoundError(
++					ctx,
++					req.GetName(),
++				).Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("email repository get: %s", err), logging.ExtractFields(groupCtx)...)
+ 			return statusErr.Err()
+ 		}
+@@ -1105,10 +1167,13 @@ func (service *EmailService) SendEmail(
+ 			},
+ 		); err != nil {
+ 			if errors.Is(err, gorm.ErrRecordNotFound) {
+-				return service.statusError.NotFoundError(req.GetName()).Err()
++				return service.statusError.NotFoundError(
++					ctx,
++					req.GetName(),
++				).Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("email config repository get: %s", err), logging.ExtractFields(groupCtx)...)
+ 			return statusErr.Err()
+ 		}
+@@ -1121,7 +1186,7 @@ func (service *EmailService) SendEmail(
+ 		defer func() {
+ 			if r := recover(); r != nil {
+ 				service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-				err = service.statusError.InternalError().Err()
++				err = service.statusError.InternalError(ctx).Err()
+ 			}
+ 		}()
+ 
+@@ -1146,7 +1211,7 @@ func (service *EmailService) SendEmail(
+ 		defer func() {
+ 			if r := recover(); r != nil {
+ 				service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-				err = service.statusError.InternalError().Err()
++				err = service.statusError.InternalError(ctx).Err()
+ 			}
+ 		}()
+ 
+@@ -1173,7 +1238,7 @@ func (service *EmailService) SendEmail(
+ 			defer func() {
+ 				if r := recover(); r != nil {
+ 					service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-					err = service.statusError.InternalError().Err()
++					err = service.statusError.InternalError(ctx).Err()
+ 				}
+ 			}()
+ 
+@@ -1200,7 +1265,7 @@ func (service *EmailService) SendEmail(
+ 			defer func() {
+ 				if r := recover(); r != nil {
+ 					service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-					err = service.statusError.InternalError().Err()
++					err = service.statusError.InternalError(ctx).Err()
+ 				}
+ 			}()
+ 
+@@ -1252,6 +1317,7 @@ func (service *EmailService) SendEmail(
+ 	if len(supportedNames) == 0 {
+ 		tx.Rollback()
+ 		return nil, service.statusError.Error(
++			ctx,
+ 			codes.FailedPrecondition,
+ 			"RESOURCE_UNUSABILITY",
+ 			"The resource, \"%s\", is unusable because it does not have any project language templates assigned",
+@@ -1294,7 +1360,7 @@ func (service *EmailService) SendEmail(
+ 		defer func() {
+ 			if r := recover(); r != nil {
+ 				service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-				err = service.statusError.InternalError().Err()
++				err = service.statusError.InternalError(ctx).Err()
+ 			}
+ 		}()
+ 
+@@ -1321,7 +1387,7 @@ func (service *EmailService) SendEmail(
+ 		defer func() {
+ 			if r := recover(); r != nil {
+ 				service.logger.Error(fmt.Errorf("%v", r).Error(), logging.ExtractFields(groupCtx)...)
+-				err = service.statusError.InternalError().Err()
++				err = service.statusError.InternalError(ctx).Err()
+ 			}
+ 		}()
+ 
+@@ -1342,6 +1408,7 @@ func (service *EmailService) SendEmail(
+ 			var mysqlErr *mysql.MySQLError
+ 			if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+ 				statusErr := service.statusError.AlreadyExistsError(
++					ctx,
+ 					longrunningresourcev1.OperationName(
+ 						"email",
+ 						false,
+@@ -1354,7 +1421,7 @@ func (service *EmailService) SendEmail(
+ 				return statusErr.Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("operation repository create: %s", err), logging.ExtractFields(groupCtx)...)
+ 			return statusErr.Err()
+ 		}
+@@ -1380,7 +1447,7 @@ func (service *EmailService) SendEmail(
+ 		sendEmailProto,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("send email proto marshal: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1390,7 +1457,7 @@ func (service *EmailService) SendEmail(
+ 		attributes,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("attributes marshal: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1403,7 +1470,7 @@ func (service *EmailService) SendEmail(
+ 		emailSendEmailOutboxAttributes,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email send email outbox repository create: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1414,13 +1481,13 @@ func (service *EmailService) SendEmail(
+ 		service.statusError,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+diff --git a/internal/service/email/template/template_v1/email_template.go b/internal/service/email/template/template_v1/email_template.go
+index 7fcfc7e..da4ef27 100644
+--- a/internal/service/email/template/template_v1/email_template.go
++++ b/internal/service/email/template/template_v1/email_template.go
+@@ -118,7 +118,10 @@ func (service *EmailTemplateService) GetEmailTemplate(
+ 
+ 	var projectRid, emailRid, rid string
+ 	if projectRid, emailRid, rid, err = emailtemplateresourcev1.ParseEmailTemplateName(req.GetName()); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetName(),
++		).Err()
+ 	}
+ 
+ 	var fieldMasks []fieldmask.FieldMask
+@@ -134,13 +137,13 @@ func (service *EmailTemplateService) GetEmailTemplate(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -158,7 +161,7 @@ func (service *EmailTemplateService) GetEmailTemplate(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -172,10 +175,13 @@ func (service *EmailTemplateService) GetEmailTemplate(
+ 		filters,
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -184,7 +190,7 @@ func (service *EmailTemplateService) GetEmailTemplate(
+ 	if emailTemplateProto, err = emailTemplate.ToProto(
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -244,7 +250,10 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 	if parentProjectRid, parentEmailRid, err = emailresourcev1.ParseEmailName(
+ 		req.GetParent(),
+ 	); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	projectRids := make([]string, len(req.GetNames()))
+@@ -253,15 +262,24 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 	for i, reqName := range req.GetNames() {
+ 		var projectRid, emailRid, rid string
+ 		if projectRid, emailRid, rid, err = emailtemplateresourcev1.ParseEmailTemplateName(reqName); err != nil {
+-			return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++			return nil, service.statusError.InvalidArgumentError(
++				ctx,
++				err.Error(),
++			).Err()
+ 		}
+ 
+ 		if parentProjectRid != projectRid {
+-			return nil, service.statusError.ParentMismatchError(reqName, req.GetParent()).Err()
++			return nil, service.statusError.ParentMismatchError(
++				ctx,
++				reqName, req.GetParent(),
++			).Err()
+ 		}
+ 
+ 		if parentEmailRid != "-" && parentEmailRid != emailRid {
+-			return nil, service.statusError.ParentMismatchError(reqName, req.GetParent()).Err()
++			return nil, service.statusError.ParentMismatchError(
++				ctx,
++				reqName, req.GetParent(),
++			).Err()
+ 		}
+ 
+ 		projectRids[i] = projectRid
+@@ -282,13 +300,13 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -306,7 +324,7 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -319,7 +337,7 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 		fieldMasks,
+ 		filters,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository batch get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -328,7 +346,7 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 	for _, emailTemplate := range emailTemplates {
+ 		var emailTemplateName string
+ 		if emailTemplateName, err = emailTemplate.ToProtoName(); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto name: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -341,11 +359,14 @@ func (service *EmailTemplateService) BatchGetEmailTemplates(
+ 		var emailTemplate *modelv1.EmailTemplate
+ 		var ok bool
+ 		if emailTemplate, ok = emailTemplateIndex[reqName]; !ok {
+-			return nil, service.statusError.NotFoundError(reqName).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				reqName,
++			).Err()
+ 		}
+ 
+ 		if emailTemplateProtos[i], err = emailTemplate.ToProto(fieldMaskIndex); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -418,7 +439,10 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 
+ 	var parentProjectRid, parentEmailRid string
+ 	if parentProjectRid, parentEmailRid, err = emailresourcev1.ParseEmailName(req.GetParent()); err != nil {
+-		return nil, service.statusError.InvalidArgumentError(err.Error()).Err()
++		return nil, service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		).Err()
+ 	}
+ 
+ 	var pageSize int32
+@@ -430,7 +454,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	if reqHash, err = service.pageToken.Hash(&emailtemplateprotov1.ListEmailTemplatesRequest{
+ 		Parent: req.GetParent(), OrderBy: req.GetOrderBy(), Filter: req.GetFilter(),
+ 	}); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("page token hash: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -444,18 +468,21 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 			req.GetPageToken(),
+ 		); err != nil {
+ 			if err == pagetokenv1.ErrPageTokenCorruption {
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+ 
+ 		if protovalidate.Validate(reqPageToken) != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -466,15 +493,21 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 		); err != nil {
+ 			switch err {
+ 			case pagetokenv1.ErrPageTokenExpiry:
+-				statusErr := service.statusError.PageTokenExpiryError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenExpiryError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			case pagetokenv1.ErrPageTokenHashMismatch:
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			default:
+-				statusErr := service.statusError.InternalError()
++				statusErr := service.statusError.InternalError(ctx)
+ 				service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+@@ -488,14 +521,14 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 
+ 	var reqPaginationField fieldmask.FieldMask
+ 	if reqPaginationField, err = reqPagination.Field(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	var reqPaginationFieldValue any
+ 	if reqPaginationFieldValue, err = reqPagination.FieldValue(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -513,13 +546,13 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 		req.GetReadMask(),
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -543,7 +576,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -561,7 +594,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 		reqPaginationField,
+ 		reqPaginationFieldValue,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository list: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -569,7 +602,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	emailTemplateProtos := make([]*emailtemplateprotov1.EmailTemplate, len(emailTemplates))
+ 	for i, user := range emailTemplates {
+ 		if emailTemplateProtos[i], err = user.ToProto(fieldMaskIndex); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -590,7 +623,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	}
+ 
+ 	if nextPageToken.EmailTemplateId = int64(emailTemplates[len(emailTemplates)-1].GetId()); emailTemplates[len(emailTemplates)-1].GetId() == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: id required", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -600,7 +633,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 		emailtemplateprotov1.LIST_EMAIL_TEMPLATES_REQUEST_ORDER_TYPE_LIST_EMAIL_TEMPLATES_REQUEST_ORDER_TYPE_CREATE_TIME:
+ 		var nextPageTokenCreatedAt time.Time
+ 		if nextPageTokenCreatedAt = emailTemplates[len(emailTemplates)-1].GetCreatedAt(); nextPageTokenCreatedAt.IsZero() {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error("next page token: created at required", logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -610,7 +643,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	case emailtemplateprotov1.LIST_EMAIL_TEMPLATES_REQUEST_ORDER_TYPE_LIST_EMAIL_TEMPLATES_REQUEST_ORDER_TYPE_UPDATE_TIME:
+ 		var nextPageTokenUpdatedAt time.Time
+ 		if nextPageTokenUpdatedAt = emailTemplates[len(emailTemplates)-1].GetUpdatedAt(); nextPageTokenUpdatedAt.IsZero() {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error("next page token: updated at required", logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -618,7 +651,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 			UpdateTime: timestamppb.New(nextPageTokenUpdatedAt),
+ 		}
+ 	default:
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: unsupported order type", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -626,7 +659,7 @@ func (service *EmailTemplateService) ListEmailTemplates(
+ 	if resp.NextPageToken, err = service.pageToken.Encode(
+ 		nextPageToken,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("next page token encode: %s", err.Error()), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -679,13 +712,13 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 		},
+ 		fieldMaskOptions,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -697,7 +730,10 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 		req.GetEmailTemplate(),
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InvalidArgumentError(err.Error())
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		)
+ 		service.logger.Info(fmt.Sprintf("from proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -712,7 +748,7 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -736,11 +772,14 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.ParentNotFoundError(req.GetParent()).Err()
++			return nil, service.statusError.ParentNotFoundError(
++				ctx,
++				req.GetParent(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -767,6 +806,7 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 	if !slices.Contains(projectConfig.GetLanguages(), req.GetEmailTemplate().GetLanguage()) {
+ 		tx.Rollback()
+ 		statusErr := service.statusError.Error(
++			ctx,
+ 			codes.FailedPrecondition,
+ 			"RESOURCE_UNUSABILITY",
+ 			fmt.Sprintf(
+@@ -791,6 +831,7 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+ 			tx.Rollback()
+ 			statusErr := service.statusError.AlreadyExistsError(
++				ctx,
+ 				emailtemplateresourcev1.EmailTemplateName(
+ 					false,
+ 					emailTemplate.GetEmail().GetProjectRid(),
+@@ -804,7 +845,7 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository create: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -814,13 +855,13 @@ func (service *EmailTemplateService) CreateEmailTemplate(
+ 		fieldMaskIndex,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -862,13 +903,13 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		fieldmask.FieldMask,
+ 	])
+ 	if fieldMasks, fieldMaskIndex, err = fieldMaskSolver.Solve(req.GetUpdateMask(), fieldMaskOptions); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("field mask solver: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if len(fieldMasks) == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("field mask solver: zero field masks", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -880,7 +921,10 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		req.GetEmailTemplate(),
+ 		fieldMaskIndex,
+ 	); err != nil {
+-		statusErr := service.statusError.InvalidArgumentError(err.Error())
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			err.Error(),
++		)
+ 		service.logger.Info(fmt.Sprintf("from proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -903,7 +947,7 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -918,11 +962,14 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.NotFoundError(req.GetEmailTemplate().GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetEmailTemplate().GetName(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -932,14 +979,17 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		make(map[fieldmask.FieldMask]bool),
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if req.GetEmailTemplate().GetEtag() != emailTemplateEtagProto.GetEtag() {
+ 		tx.Rollback()
+-		statusErr := service.statusError.EtagMismatchError(req.GetEmailTemplate().GetEtag())
++		statusErr := service.statusError.EtagMismatchError(
++			ctx,
++			req.GetEmailTemplate().GetEtag(),
++		)
+ 		service.logger.Info("etag mismatch", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -948,7 +998,7 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		emailTemplateEtag,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("patch: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -960,7 +1010,7 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		nil,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository update: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -970,13 +1020,13 @@ func (service *EmailTemplateService) UpdateEmailTemplate(
+ 		fieldMaskIndex,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -996,7 +1046,10 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 
+ 	var projectRid, emailRid, rid string
+ 	if projectRid, emailRid, rid, err = emailtemplateresourcev1.ParseEmailTemplateName(req.GetName()); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetName(),
++		).Err()
+ 	}
+ 
+ 	filters := []filter.Filter{
+@@ -1017,7 +1070,7 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 	}()
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1032,11 +1085,14 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+ 			tx.Rollback()
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1046,14 +1102,17 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 		make(map[fieldmask.FieldMask]bool),
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if req.GetEtag() != emailTemplateEtagProto.GetEtag() {
+ 		tx.Rollback()
+-		statusErr := service.statusError.EtagMismatchError(req.GetEtag())
++		statusErr := service.statusError.EtagMismatchError(
++			ctx,
++			req.GetEtag(),
++		)
+ 		service.logger.Info("etag mismatch", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1063,7 +1122,7 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 		emailTemplateEtag,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("patch: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -1074,13 +1133,13 @@ func (service *EmailTemplateService) DeleteEmailTemplate(
+ 		nil,
+ 	); err != nil {
+ 		tx.Rollback()
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("email template repository delete: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	if err = tx.Commit().Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("commit: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+diff --git a/internal/service/longrunning/longrunning_v1/operation.go b/internal/service/longrunning/longrunning_v1/operation.go
+index 61797f6..34d8f84 100644
+--- a/internal/service/longrunning/longrunning_v1/operation.go
++++ b/internal/service/longrunning/longrunning_v1/operation.go
+@@ -78,7 +78,10 @@ func (service *OperationService) GetOperation(
+ 	var projectRid string
+ 	var rid uuid.UUID
+ 	if projectRid, rid, err = longrunningresourcev1.ParseOperationName(req.GetName()); err != nil {
+-		return nil, service.statusError.NotFoundError(req.GetName()).Err()
++		return nil, service.statusError.NotFoundError(
++			ctx,
++			req.GetName(),
++		).Err()
+ 	}
+ 
+ 	fieldMasks := []fieldmask.FieldMask{
+@@ -101,7 +104,7 @@ func (service *OperationService) GetOperation(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -119,10 +122,13 @@ func (service *OperationService) GetOperation(
+ 		filters,
+ 	); err != nil {
+ 		if errors.Is(err, gorm.ErrRecordNotFound) {
+-			return nil, service.statusError.NotFoundError(req.GetName()).Err()
++			return nil, service.statusError.NotFoundError(
++				ctx,
++				req.GetName(),
++			).Err()
+ 		}
+ 
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("operation repository get: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -132,7 +138,7 @@ func (service *OperationService) GetOperation(
+ 		service.subscriptionIndex,
+ 		service.statusError,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -149,7 +155,10 @@ func (service *OperationService) ListOperations(
+ 	parentName := req.GetName()
+ 
+ 	if parentName != "" && !service.parentNameRegexp.MatchString(parentName) {
+-		statusErr := service.statusError.InvalidArgumentError("invalid name")
++		statusErr := service.statusError.InvalidArgumentError(
++			ctx,
++			"invalid name",
++		)
+ 		service.logger.Info("validation: invalid name", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -162,7 +171,9 @@ func (service *OperationService) ListOperations(
+ 		pageSize = req.GetPageSize()
+ 	default:
+ 		return nil, service.statusError.InvalidArgumentError(
+-			"page size must be between 1 and 50").Err()
++			ctx,
++			"page size must be between 1 and 50",
++		).Err()
+ 	}
+ 
+ 	var reqHash string
+@@ -170,7 +181,7 @@ func (service *OperationService) ListOperations(
+ 		Name:   req.GetName(),
+ 		Filter: req.GetFilter(),
+ 	}); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("page token hash: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -180,18 +191,21 @@ func (service *OperationService) ListOperations(
+ 		reqPageToken = new(globallongrunningprotov1.ListOperationsRequestPageToken)
+ 		if err = service.pageToken.Decode(reqPageToken, req.GetPageToken()); err != nil {
+ 			if err == pagetokenv1.ErrPageTokenCorruption {
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+ 
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token decode: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+ 
+ 		if protovalidate.Validate(reqPageToken) != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -199,15 +213,21 @@ func (service *OperationService) ListOperations(
+ 		if err = service.pageToken.Validate(reqPageToken, reqHash); err != nil {
+ 			switch err {
+ 			case pagetokenv1.ErrPageTokenExpiry:
+-				statusErr := service.statusError.PageTokenExpiryError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenExpiryError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			case pagetokenv1.ErrPageTokenHashMismatch:
+-				statusErr := service.statusError.PageTokenMismatchError(req.GetPageToken())
++				statusErr := service.statusError.PageTokenMismatchError(
++					ctx,
++					req.GetPageToken(),
++				)
+ 				service.logger.Info(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			default:
+-				statusErr := service.statusError.InternalError()
++				statusErr := service.statusError.InternalError(ctx)
+ 				service.logger.Error(fmt.Sprintf("page token validate: %s", err), logging.ExtractFields(ctx)...)
+ 				return nil, statusErr.Err()
+ 			}
+@@ -220,14 +240,14 @@ func (service *OperationService) ListOperations(
+ 
+ 	var reqPaginationField fieldmask.FieldMask
+ 	if reqPaginationField, err = reqPagination.Field(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	var reqPaginationFieldValue any
+ 	if reqPaginationFieldValue, err = reqPagination.FieldValue(); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("request pagination: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -257,7 +277,7 @@ func (service *OperationService) ListOperations(
+ 	})
+ 
+ 	if err = tx.Error; err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("tx: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -274,7 +294,7 @@ func (service *OperationService) ListOperations(
+ 		reqPaginationField,
+ 		reqPaginationFieldValue,
+ 	); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("operation repository list: %s", err), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -285,7 +305,7 @@ func (service *OperationService) ListOperations(
+ 			service.subscriptionIndex,
+ 			service.statusError,
+ 		); err != nil {
+-			statusErr := service.statusError.InternalError()
++			statusErr := service.statusError.InternalError(ctx)
+ 			service.logger.Error(fmt.Sprintf("to proto: %s", err), logging.ExtractFields(ctx)...)
+ 			return nil, statusErr.Err()
+ 		}
+@@ -305,21 +325,21 @@ func (service *OperationService) ListOperations(
+ 	}
+ 
+ 	if nextPageToken.OperationId = int64(operations[len(operations)-1].GetId()); operations[len(operations)-1].GetId() == 0 {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: id required", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 
+ 	var nextPageTokenCreatedAt time.Time
+ 	if nextPageTokenCreatedAt = operations[len(operations)-1].GetCreatedAt(); nextPageTokenCreatedAt.IsZero() {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error("next page token: created at required", logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+ 	nextPageToken.CreateTime = timestamppb.New(nextPageTokenCreatedAt)
+ 
+ 	if resp.NextPageToken, err = service.pageToken.Encode(nextPageToken); err != nil {
+-		statusErr := service.statusError.InternalError()
++		statusErr := service.statusError.InternalError(ctx)
+ 		service.logger.Error(fmt.Sprintf("next page token encode: %s", err.Error()), logging.ExtractFields(ctx)...)
+ 		return nil, statusErr.Err()
+ 	}
+@@ -332,6 +352,7 @@ func (service *OperationService) DeleteOperation(
+ 	req *longrunningpb.DeleteOperationRequest,
+ ) (*emptypb.Empty, error) {
+ 	return nil, service.statusError.Error(
++		ctx,
+ 		codes.Unimplemented,
+ 		"UNIMPLEMENTED",
+ 		"method not implemented",
+@@ -344,6 +365,7 @@ func (service *OperationService) CancelOperation(
+ 	req *longrunningpb.CancelOperationRequest,
+ ) (*emptypb.Empty, error) {
+ 	return nil, service.statusError.Error(
++		ctx,
+ 		codes.Unimplemented,
+ 		"UNIMPLEMENTED",
+ 		"method not implemented",
+@@ -356,6 +378,7 @@ func (service *OperationService) WaitOperation(
+ 	req *longrunningpb.WaitOperationRequest,
+ ) (*longrunningpb.Operation, error) {
+ 	return nil, service.statusError.Error(
++		ctx,
+ 		codes.Unimplemented,
+ 		"UNIMPLEMENTED",
+ 		"method not implemented",
+diff --git a/cmd/earth_email_service/main.go b/cmd/earth_email_service/main.go
+index 20c5e3a..c7c3969 100644
+--- a/cmd/earth_auth_service/main.go
++++ b/cmd/earth_auth_service/main.go
+@@ -213,7 +213,7 @@ func main() {
+ 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+ 	<-quit
+ 
+-	zapLogger.Info(fmt.Sprintf("shutting down server(s) ..."))
++	zapLogger.Info("shutting down server(s) ...")
+ 
+ 	grpcServer.GracefulStop()
+ 	zapLogger.Info("grpc server: shutdown successfully")
