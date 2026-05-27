@@ -188,7 +188,6 @@ index 0000000..2cef829
 +++ b/cmd/atlas/BUILD.bazel
 @@ -0,0 +1,30 @@
 +load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
-+load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations")
 +load("@rules_go//go:def.bzl", "go_binary", "go_library")
 +
 +go_library(
