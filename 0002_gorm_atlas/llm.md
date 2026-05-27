@@ -10,7 +10,7 @@ Before writing any code, inspect the target service's filesystem.
 The diff introduces OpenTelemetry tracing to the entry points (`main.go`). You must apply the exact same `otel` propagator setup, `otelgrpc` interceptors, and the updated `loggerFieldsFromContext` logic to the target service's `main.go` file(s).
 
 **3. Map the Logic:**
-Do not blindly copy the business logic or specific columns from the earth email service. Translate the _mechanics_ of the migration and configs to fit the existing logic of the target service.
+Do not blindly copy the business logic or specific columns from the service. Translate the _mechanics_ of the migration and configs to fit the existing logic of the target service.
 
 **4. Rule Override - Dependencies:**
 _I explicitly approve adding and bumping the dependencies shown in the diff for this task._ You are authorized to bypass the "no new dependencies" rule in `agent.md` for this specific update. (Note: Only add the database dependencies if the service actually has a database).

@@ -1,0 +1,96 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 0986791..cefe059 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+ load("@gazelle//:def.bzl", "gazelle")
+ load("@rules//pkg/ai/llm:llm.bzl", "earth_go_service_agents_md_template")
+ load("@rules//pkg/ls_lint:ls_lint.bzl", "ls_lint_test")
+@@ -54,3 +55,10 @@ earth_go_service_agents_md_template(
+     ],
+     visibility = ["//visibility:private"],
+ )
++
++write_source_file(
++    name = "agents_md_source",
++    in_file = ":agents_md",
++    out_file = "AGENTS.md",
++    visibility = ["//visibility:private"],
++)
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 1eb67fa..d4deeb1 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -7,7 +7,7 @@ bazel_dep(name = "rules_go", version = "0.59.0", dev_dependency = True)
+ bazel_dep(name = "gazelle", version = "0.47.0", dev_dependency = True)
+ bazel_dep(name = "rules_oci", version = "2.2.6", dev_dependency = True)
+ bazel_dep(name = "rules_pkg", version = "1.2.0", dev_dependency = True)
+-bazel_dep(name = "aspect_bazel_lib", version = "2.22.5", dev_dependency = True)
++bazel_dep(name = "bazel_lib", version = "3.3.1", dev_dependency = True)
+ bazel_dep(name = "bazel_skylib", version = "1.9.0", dev_dependency = True)
+ bazel_dep(name = "container_structure_test", version = "1.21.1", dev_dependency = True)
+ bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+diff --git a/MODULE.bazel.lock b/MODULE.bazel.lock
+index f1845e9..9373543 100644
+--- a/MODULE.bazel.lock
++++ b/MODULE.bazel.lock
+@@ -80,7 +80,8 @@
+     "https://bcr.bazel.build/modules/bazel_lib/3.0.0-beta.1/MODULE.bazel": "407729e232f611c3270005b016b437005daa7b1505826798ea584169a476e878",
+     "https://bcr.bazel.build/modules/bazel_lib/3.0.0-rc.0/MODULE.bazel": "d6e00979a98ac14ada5e31c8794708b41434d461e7e7ca39b59b765e6d233b18",
+     "https://bcr.bazel.build/modules/bazel_lib/3.0.0/MODULE.bazel": "22b70b80ac89ad3f3772526cd9feee2fa412c2b01933fea7ed13238a448d370d",
+-    "https://bcr.bazel.build/modules/bazel_lib/3.0.0/source.json": "895f21909c6fba01d7c17914bb6c8e135982275a1b18cdaa4e62272217ef1751",
++    "https://bcr.bazel.build/modules/bazel_lib/3.3.1/MODULE.bazel": "732a0d516cf6400d9b3136e4356258aef1bf91de8d5240f87f0112f098920c1d",
++    "https://bcr.bazel.build/modules/bazel_lib/3.3.1/source.json": "8e5175d7b4125a39b8941d01e38039934d058e03804f46a2b8fd7ae6316b1ce2",
+     "https://bcr.bazel.build/modules/bazel_skylib/1.0.3/MODULE.bazel": "bcb0fd896384802d1ad283b4e4eb4d718eebd8cb820b0a2c3a347fb971afd9d8",
+     "https://bcr.bazel.build/modules/bazel_skylib/1.1.1/MODULE.bazel": "1add3e7d93ff2e6998f9e118022c84d163917d912f5afafb3058e3d2f1545b5e",
+     "https://bcr.bazel.build/modules/bazel_skylib/1.2.0/MODULE.bazel": "44fe84260e454ed94ad326352a698422dbe372b21a1ac9f3eab76eb531223686",
+@@ -1247,7 +1248,7 @@
+     "@@yq.bzl+//yq:extensions.bzl%yq": {
+       "general": {
+         "bzlTransitiveDigest": "61Uz+o5PnlY0jJfPZEUNqsKxnM/UCLeWsn5VVCc8u5Y=",
+-        "usagesDigest": "ZOAWpgZuwDXp5fopmqZRsJ/5y/q2x3Evle32ppSstZM=",
++        "usagesDigest": "L+otO9xvwIFywi8vrhskBwjeWSSCE7f5iIykUFebyao=",
+         "recordedFileInputs": {},
+         "recordedDirentsInputs": {},
+         "envVariables": {},
+diff --git a/cmd/atlas/BUILD.bazel b/cmd/atlas/BUILD.bazel
+index 0a51036..95f054b 100644
+--- a/cmd/atlas/BUILD.bazel
++++ b/cmd/atlas/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
++load("@bazel_lib//lib:run_binary.bzl", "run_binary")
+ load("@rules_go//go:def.bzl", "go_binary", "go_library")
+ 
+ go_library(
+diff --git a/cmd/earth_iam_service/BUILD.bazel b/cmd/earth_iam_service/BUILD.bazel
+index 4348b1e..78efc0a 100644
+--- a/cmd/earth_iam_service/BUILD.bazel
++++ b/cmd/earth_iam_service/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
++load("@bazel_lib//lib:expand_template.bzl", "expand_template")
+ load("@container_structure_test//:defs.bzl", "container_structure_test")
+ load("@rules_go//go:def.bzl", "go_binary", "go_library")
+ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load")
+diff --git a/cmd/earth_iamauthorization_service/BUILD.bazel b/cmd/earth_iamauthorization_service/BUILD.bazel
+index 7d63626..c447f11 100644
+--- a/cmd/earth_iamauthorization_service/BUILD.bazel
++++ b/cmd/earth_iamauthorization_service/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
++load("@bazel_lib//lib:expand_template.bzl", "expand_template")
+ load("@container_structure_test//:defs.bzl", "container_structure_test")
+ load("@rules_go//go:def.bzl", "go_binary", "go_library")
+ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load")
+diff --git a/db/BUILD.bazel b/db/BUILD.bazel
+index da8cb97..7584ebc 100644
+--- a/db/BUILD.bazel
++++ b/db/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_files")
++load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+ load("@rules//pkg/atlas:atlas.bzl", "atlas_migrations", "atlas_migrations_test")
+ load("@rules_go//go:def.bzl", "go_library")
+ 
