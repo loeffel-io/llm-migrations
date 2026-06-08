@@ -83,12 +83,12 @@ index 40b9552..9082a06 100644
  bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
  bazel_dep(name = "buildifier_prebuilt", version = "8.2.1", dev_dependency = True)
 -bazel_dep(name = "rules", version = "0.20.37", dev_dependency = True)
-+bazel_dep(name = "rules", version = "0.20.67", dev_dependency = True)
++bazel_dep(name = "rules", version = "0.22.0", dev_dependency = True)
  git_override(
      module_name = "rules",
      remote = "git@github.com:mindful-hq/rules.git",
 -    tag = "v0.20.37",
-+    tag = "v0.20.67",
++    tag = "v0.22.0",
  )
  
 -bazel_dep(name = "global_generics", version = "0.34.1", dev_dependency = True)
