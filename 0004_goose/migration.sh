@@ -10,7 +10,7 @@ set -e
 # CONFIGURATION
 # ==========================================
 SERVICES=("email" "user" "iam" "resourcemanager" "storage" "content")
-DB_NAME="loeffel-io"
+DB_NAME="master"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
 PF_PID=""
@@ -19,8 +19,8 @@ PF_PID=""
 # HELPER FUNCTIONS
 # ==========================================
 start_pf() {
-    echo "=> Starting port forwarding (mpf loeffel-io $SERVICE_NAME 3306 3306)..."
-    mpf loeffel-io "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
+    echo "=> Starting port forwarding (mpf master $SERVICE_NAME 3306 3306)..."
+    mpf master "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
     PF_PID=$!
 
     wait_for_db
@@ -47,7 +47,7 @@ wait_for_db() {
 
         # Self-healing: If the mpf process died, restart it using the correct service name
         if ! kill -0 $PF_PID 2>/dev/null; then
-            mpf loeffel-io "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
+            mpf master "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
             PF_PID=$!
         fi
 
@@ -118,13 +118,13 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
 
     # --- C. DEPLOY MIGRATION ---
     echo "=> [3/4] Deploying migration for $SERVICE_NAME..."
-    mmd loeffel-io "$SERVICE_NAME"
+    mmd master "$SERVICE_NAME"
     echo "   Migration deployed."
 
     # --- C.5 FORCE KUBERNETES ROLLOUT ---
     echo "=> [3.5/4] Forcing K8s rollout to trigger Goose init-containers..."
-    BAZELRC="$HOME/.config/mindful/loeffel-io.rc"
-    K8S_SERVICE="earth-${SERVICE_NAME}-service-loeffel-io"
+    BAZELRC="$HOME/.config/mindful/master.rc"
+    K8S_SERVICE="earth-${SERVICE_NAME}-service-master"
 
     if ! (
         cd "$HOME/go/src/github.com/mindful-hq/earth-${SERVICE_NAME}-service" &&
