@@ -86,7 +86,7 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
 
     # Base commands
     MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USER"
-    MYSQLDUMP_CMD="mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER --no-create-info --complete-insert --single-transaction"
+    MYSQLDUMP_CMD="mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER --no-create-info --complete-insert --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces"
 
     # 1. Start PF & Wait
     start_pf
