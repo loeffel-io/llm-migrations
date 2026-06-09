@@ -9,7 +9,7 @@ set -e
 # ==========================================
 # CONFIGURATION
 # ==========================================
-SERVICES=("resourcemanager" "storage" "content") # "email" "user" "iam"
+SERVICES=("email" "user" "iam" "resourcemanager" "storage" "content")
 DB_NAME="loeffel-io"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
