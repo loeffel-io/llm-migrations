@@ -126,7 +126,7 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
     # --- C.5 FORCE KUBERNETES ROLLOUT ---
     echo "=> [3.5/4] Forcing K8s rollout to trigger Goose init-containers..."
     BAZELRC="$HOME/.config/mindful/staging.rc"
-    K8S_SERVICE="earth-${SERVICE_NAME}-service"
+    K8S_SERVICE="earth-${SERVICE_NAME}-service" # append dev for dev
 
     if ! (
         cd "$HOME/go/src/github.com/mindful-hq/earth-${SERVICE_NAME}-service" &&
