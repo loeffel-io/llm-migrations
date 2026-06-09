@@ -9,8 +9,7 @@ set -e
 # ==========================================
 # CONFIGURATION
 # ==========================================
-SERVICES=("email" "user" "iam" "resourcemanager" "storage" "content")
-DB_NAME="master"
+SERVICES=("user" "iam" "resourcemanager" "storage" "content") # "email"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
 PF_PID=""
@@ -19,8 +18,8 @@ PF_PID=""
 # HELPER FUNCTIONS
 # ==========================================
 start_pf() {
-    echo "=> Starting port forwarding (mpf master $SERVICE_NAME 3306 3306)..."
-    mpf master "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
+    echo "=> Starting port forwarding (mpf staging $SERVICE_NAME 3306 3306)..."
+    mpf staging "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
     PF_PID=$!
 
     wait_for_db
@@ -47,7 +46,7 @@ wait_for_db() {
 
         # Self-healing: If the mpf process died, restart it using the correct service name
         if ! kill -0 $PF_PID 2>/dev/null; then
-            mpf master "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
+            mpf staging "$SERVICE_NAME" 3306 3306 >/dev/null 2>&1 &
             PF_PID=$!
         fi
 
@@ -74,10 +73,13 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
     echo "----------------------------------------------------"
 
     if [ "$SERVICE_NAME" == "user" ]; then
-        DB_USER="earth-user-service-dev-i"
+        DB_USER="earth-user-service-s-i"
     else
-        DB_USER="earth-${SERVICE_NAME}-s-d-i"
+        DB_USER="earth-${SERVICE_NAME}-s-s-i"
     fi
+
+    # Dynamically set the DB_NAME for staging
+    DB_NAME="earth-${SERVICE_NAME}-service"
 
     DUMP_FILE="${SERVICE_NAME}.sql"
 
@@ -118,19 +120,21 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
 
     # --- C. DEPLOY MIGRATION ---
     echo "=> [3/4] Deploying migration for $SERVICE_NAME..."
-    mmd master "$SERVICE_NAME"
+    mmd staging "$SERVICE_NAME"
     echo "   Migration deployed."
 
     # --- C.5 FORCE KUBERNETES ROLLOUT ---
     echo "=> [3.5/4] Forcing K8s rollout to trigger Goose init-containers..."
-    BAZELRC="$HOME/.config/mindful/master.rc"
-    K8S_SERVICE="earth-${SERVICE_NAME}-service-master"
+    BAZELRC="$HOME/.config/mindful/staging.rc"
+    K8S_SERVICE="earth-${SERVICE_NAME}-service"
 
     if ! (
         cd "$HOME/go/src/github.com/mindful-hq/earth-${SERVICE_NAME}-service" &&
-            CLOUDSDK_CORE_VERBOSITY=error bazel --quiet --nohome_rc --bazelrc="$BAZELRC" run --ui_event_filters=-info //deployments/dev:kubectl -- rollout restart deployment "$K8S_SERVICE"
+            CLOUDSDK_CORE_VERBOSITY=error bazel --quiet --nohome_rc --bazelrc="$BAZELRC" run --ui_event_filters=-info //deployments/staging:kubectl -- rollout restart deployment "$K8S_SERVICE" &&
+            echo "   Waiting for new pods to be fully ready (this ensures Goose finishes)..." &&
+            CLOUDSDK_CORE_VERBOSITY=error bazel --quiet --nohome_rc --bazelrc="$BAZELRC" run --ui_event_filters=-info //deployments/staging:kubectl -- rollout status deployment "$K8S_SERVICE" --timeout=120s
     ); then
-        echo "   Warning: Rollout restart failed."
+        echo "   Warning: Rollout restart or status check failed."
     fi
 
     # 3. Restart PF & Wait (This waits until the newly rolled out pod is ready!)
