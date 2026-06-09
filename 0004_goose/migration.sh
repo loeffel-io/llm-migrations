@@ -9,7 +9,7 @@ set -e
 # ==========================================
 # CONFIGURATION
 # ==========================================
-SERVICES=("user" "iam" "resourcemanager" "storage" "content") # "email"
+SERVICES=("email" "user" "iam" "resourcemanager" "storage" "content")
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
 PF_PID=""
