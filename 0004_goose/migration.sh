@@ -9,7 +9,7 @@ set -e
 # ==========================================
 # CONFIGURATION
 # ==========================================
-SERVICES=("email") # "user" "iam" "resourcemanager" "storage" "content")
+SERVICES=("email" "user" "iam" "resourcemanager" "storage" "content")
 DB_NAME="loeffel-io"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
@@ -86,7 +86,7 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
 
     # Base commands
     MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USER"
-    MYSQLDUMP_CMD="mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER --no-create-info --complete-insert --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces"
+    MYSQLDUMP_CMD="mysqldump -h $DB_HOST -P $DB_PORT -u $DB_USER --no-create-info --complete-insert --skip-lock-tables --set-gtid-purged=OFF --no-tablespaces --insert-ignore"
 
     # 1. Start PF & Wait
     start_pf
@@ -121,7 +121,19 @@ for SERVICE_NAME in "${SERVICES[@]}"; do
     mmd loeffel-io "$SERVICE_NAME"
     echo "   Migration deployed."
 
-    # 3. Restart PF & Wait
+    # --- C.5 FORCE KUBERNETES ROLLOUT ---
+    echo "=> [3.5/4] Forcing K8s rollout to trigger Goose init-containers..."
+    BAZELRC="$HOME/.config/mindful/loeffel-io.rc"
+    K8S_SERVICE="earth-${SERVICE_NAME}-service-loeffel-io"
+
+    if ! (
+        cd "$HOME/go/src/github.com/mindful-hq/earth-${SERVICE_NAME}-service" &&
+            CLOUDSDK_CORE_VERBOSITY=error bazel --quiet --nohome_rc --bazelrc="$BAZELRC" run --ui_event_filters=-info //deployments/dev:kubectl -- rollout restart deployment "$K8S_SERVICE"
+    ); then
+        echo "   Warning: Rollout restart failed."
+    fi
+
+    # 3. Restart PF & Wait (This waits until the newly rolled out pod is ready!)
     start_pf
 
     # --- D. IMPORT DUMP (DATA ONLY) ---
