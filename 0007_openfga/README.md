@@ -85,6 +85,8 @@ Hashing everything or string parts only (especially the firebase account/user ui
 #### solution
 
 The maximum length of any rid must be `63` characters.
+The account:{firebaseUid} is subject only.
+The service account does not use email: serviceAccount:{serviceAccountRid}.
 The object rid will be base32 sha256 encoded which is around 52 characters.
 The user rid will be uuid with a max length of `36` characters.
 The policies and bindings will be sha256 encoded which is `64` characters, because they will never see the sunlight (ListObjects, Resource names, etc):
@@ -95,7 +97,7 @@ binding = sha256(resourcePath + "/" + roleRid)
 ```
 
 Result: the maximum depth is `4` including the project prefix.
-The api can take longer resource names but everything with the depth of `5` can't be have a iam policy.
+The api can take longer resource names but everything with the depth of `5` or more can't have a iam policy.
 
 ## Conclusion
 
