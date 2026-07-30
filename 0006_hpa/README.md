@@ -1,4 +1,4 @@
-we need to apply this kind of patch @ctx/patch.diff to all the services:
+we need to apply this kind of patch @0006_hpa/patch.diff to all the services:
 
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
