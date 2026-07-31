@@ -45,8 +45,10 @@ I think thats an easy fix.
 we switch to the firebase uid because its only used for the check. more at solution 4.
 
 - `allUsers`/`allAuthenticatedUsers`: verified, not used anywhere in the services (we use `account:*` and `group:all-accounts`). double check the `google.iam.v1.Policy` member string mapping.
-- membership invitations are keyed by email and would write `account:{email}` tuples. b2b is disabled for go live, so this is out of scope for now. when b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
+- membership invitations are keyed by email and would write `account:{email}` tuples.
+  b2b is disabled for go live, so this is out of scope for now. before b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
 - service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4).
+- content collections are disabled for go live, so this is out of scope for now.
 
 ### challenge 2
 
