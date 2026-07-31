@@ -36,6 +36,7 @@ The openfga model is located in `/Users/loeffel/go/src/github.com/mindful-hq/ear
 Because of dsgvo etc in germany we need to anonymize the user data in our tuples.
 Currently we do use the user email address.
 Also we need to make sure that we rename `allUsers` to `allAccounts` and `allAuthenticatedUsers` to `allAuthenticatedAccounts` before we go live.
+Also the email is included inside the logging. this needs to be also the firebase uid, best case with project name but not sure if thats easy possible.
 
 I think thats an easy fix.
 
@@ -43,11 +44,31 @@ I think thats an easy fix.
 
 we switch to the firebase uid because its only used for the check. more at solution 4.
 
+- `allUsers`/`allAuthenticatedUsers`: verified, not used anywhere in the services (we use `account:*` and `group:all-accounts`). double check the `google.iam.v1.Policy` member string mapping.
+- membership invitations are keyed by email and would write `account:{email}` tuples. b2b is disabled for go live, so this is out of scope for now. when b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
+- service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4).
+
 ### challenge 2
+
+#### problem
 
 A lot of our services are not creating resources including the openfga tuples yet.
 We need to make sure that the tuple creation and the outboxes for this are done and consistent before be go live.
 That means there need to be a resource, binding and policy tuple type for each resource.
+
+#### solution
+
+We need to make sure that the tuple creation and the outboxes for this are done and consistent before be go live.
+_Its not required to create the binding and policy tuples for each resource before we go live._
+Policies/bindings are created lazily on `SetIamPolicy` (full chain in one BatchWriteTuples). This works because ext authz always checks `project:` as fallback.
+
+Exceptions and rules:
+
+- Every resource always writes its resource -> parent link tuple at creation (e.g. `user=content:x rel=content obj=project:m`).
+- End-user-owned resources with their own policy chain (`user`) must write their default policy + binding + account tuples at creation, otherwise the owner is locked out. `userEntitlement` writes its sku/account tuples at creation.
+- `userBillingAccount`, `userBillingInfo`, `profile` need nothing: they are parent-policied via the `user` type.
+- b2b (`organization`, `membership`, `membershipInvitation`) is disabled and will not go live.
+- `GetIamPolicy` on a never-policied resource returns an empty policy from the service db (no fga read).
 
 ### challenge 3
 
@@ -55,6 +76,21 @@ Currently we use the openfga `sku` and `role` type to set the iam permissions.
 I think this could be problematic because the `sku` and `role` should have their own resource, binding and policy tuple types,
 that we can policy the iam permissions for.
 Could be that we need internal types for this like `_role` and `_sku`, but very unsure.
+
+#### solution
+
+we need to switch to `_role` and `_sku` to make it possible that `role` and `sku` can later have their own policy.
+`_role` and `_sku` is only for internal grants (they keep all the `_permission` relations, bindings/entitlements point to them).
+
+Why the split is needed: the grant types occupy the whole `_` relation namespace (e.g. `_resourcemanager_project_get` as grant leaf), so a resource type can never share the type with the grants (a resource needs the same relation names as hierarchy pass-throughs). Renaming relations is impossible (50 char relation limit, we are already at 49).
+
+What we do now (per challenge 2 rules, avoids a backfill migration later):
+
+- rename `type role` -> `type _role`, `type sku` -> `type _sku` in the model and all tuple writers (iam, billing, user seeder)
+- create the empty resource types `role` and `sku` + their parent links on `project` (`define role: [role]`, `define sku: [sku]`)
+- write the `role -> project` and `sku -> project` link tuples in the create/delete outboxes
+
+What we defer (purely additive later, zero tuple migration): `rolePolicy`/`roleBinding`, `skuPolicy`/`skuBinding`, the non-underscore `iam_role_*`/`billing_sku_*` relations and `SetIamPolicy` support.
 
 ### challenge 4
 
@@ -84,11 +120,13 @@ Hashing everything or string parts only (especially the firebase account/user ui
 
 #### solution
 
+Note on the limits: the numbers above are the mysql column limits. The real api-level limits are: object = full `type:id` string <= 256, user <= 512 on postgres (<= 256 on mysql). The object limit is enforced by the api on every datastore, so postgres does not buy us more depth.
+
 The maximum length of any rid must be `63` characters.
-The account:{firebaseUid} is subject only.
-The service account does not use email: serviceAccount:{serviceAccountRid}.
-The object rid will be base32 sha256 encoded which is around 52 characters.
-The user rid will be uuid with a max length of `36` characters.
+The account:{firebaseUid} is subject only (never a path segment; the user resource has its own rid).
+The service account does not use email: serviceAccount:{serviceAccountRid} (rid must be a jwt claim for the check).
+The object rid will be base32 sha256 encoded which is around 52 characters (internal only, the api resource name keeps the object path; the storage service resolves hash -> path via an indexed column for ListObjects).
+The user rid will be uuid with a max length of `36` characters (decoupled from the firebase uid).
 The policies and bindings will be sha256 encoded which is `64` characters, because they will never see the sunlight (ListObjects, Resource names, etc):
 
 ```
@@ -97,7 +135,10 @@ binding = sha256(resourcePath + "/" + roleRid)
 ```
 
 Result: the maximum depth is `4` including the project prefix.
-The api can take longer resource names but everything with the depth of `5` or more can't have a iam policy.
+The api can take longer resource names but everything with the depth of `5` or more can't have a iam policy
+and inherits its iam check from the nearest policied ancestor (ext authz checks the ancestor object with the child permission, like gcp does).
+
+Current status: our deepest policied resources are depth 3, deepest resource names are depth 4 and not policied. Everything already conforms.
 
 ## Conclusion
 
