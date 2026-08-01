@@ -44,7 +44,17 @@ I think thats an easy fix.
 
 we switch to the firebase uid because its only used for the check. more at solution 4.
 
-- `allUsers`/`allAuthenticatedUsers`: verified, not used anywhere in the services (we use `account:*` and `group:all-accounts`). double check the `google.iam.v1.Policy` member string mapping.
+- `allUsers`/`allAuthenticatedUsers`: the rename lives in the group rids inside tuples, not in relations:
+  rename `group:all-users` -> `group:all-accounts` (auth seeder, resourcemanager project_policy) and
+  `group:all-authenticated-users` -> `group:all-authenticated-accounts` (resourcemanager project_policy).
+  The `google.iam.v1.Policy` member mapping already uses the new names (`GetAllAccounts()`/`GetAllAuthenticatedAccounts()`).
+- `group:all-authenticated-accounts` membership becomes a **contextual tuple**: the authorization service
+  adds `account:{uid} -> account -> group:all-authenticated-accounts` to every authenticated check
+  (it verified the jwt, so "authenticated" is request context, not stored data). The stored membership
+  writes at user creation (user.go) get removed: no lifecycle, no chicken-and-egg at signup, always correct.
+  We do not support firebase anonymous sign-in; if that ever changes, the contextual tuple must check the
+  `sign_in_provider` claim first.
+- the `x-mindful-email` ext authz header gets renamed (e.g. `x-mindful-account`) and carries the uid, no email in headers/logs.
 - membership invitations are keyed by email and would write `account:{email}` tuples.
   b2b is disabled for go live, so this is out of scope for now. before b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
 - service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4).
@@ -60,16 +70,23 @@ That means there need to be a resource, binding and policy tuple type for each r
 
 #### solution
 
+The single source of truth for all resources is `resourcematrix4.xlsx`:
+
+- `Own Iam Policy` decides whether a resource gets an openfga type: `JA` (instant policy at creation), `JA: LAZY` (type + parent link at creation, policy/binding tuples on `SetIamPolicy`) or `NEIN` (no type at all).
+- The `OpenFGA Object` column on `NEIN` rows only documents the format IF a type ever exists; the policy column decides whether it does. Ext authz checks `NEIN` resources on the nearest policied ancestor with the child permission (e.g. `content:` + `content_contentInfo_get`).
+- Ext authz object entries for non-existing types (e.g. `contentInfo:`, `contentImage:`, `instructorProfile:`) must be removed from the service_authorization checks.
+
 We need to make sure that the tuple creation and the outboxes for this are done and consistent before be go live.
 _Its not required to create the binding and policy tuples for each resource before we go live._
 Policies/bindings are created lazily on `SetIamPolicy` (full chain in one BatchWriteTuples). This works because ext authz always checks `project:` as fallback.
 
 Exceptions and rules:
 
-- Every resource always writes its resource -> parent link tuple at creation (e.g. `user=content:x rel=content obj=project:m`).
+- Every resource with an openfga type always writes its resource -> parent link tuple at creation, pointing to the direct AIP parent, never skipping levels (e.g. `tier -> service -> project`).
 - End-user-owned resources with their own policy chain (`user`) must write their default policy + binding + account tuples at creation, otherwise the owner is locked out. `userEntitlement` writes its sku/account tuples at creation.
 - `userBillingAccount`, `userBillingInfo`, `profile` need nothing: they are parent-policied via the `user` type.
 - b2b (`organization`, `membership`, `membershipInvitation`) is disabled and will not go live.
+- groups: post-go-live, design TBD (self-leave via group relation vs. full membership chain like organization). the two well-known groups `all-accounts` (wildcard, seeded) and `all-authenticated-accounts` (contextual, see challenge 1) exist at go live.
 - `GetIamPolicy` on a never-policied resource returns an empty policy from the service db (no fga read).
 
 ### challenge 3
@@ -142,6 +159,12 @@ and inherits its iam check from the nearest policied ancestor (ext authz checks 
 
 Current status: our deepest policied resources are depth 3, deepest resource names are depth 4 and not policied. Everything already conforms.
 
+All tuple strings (objects, users, policies, bindings, hashes) are built exclusively via the
+`global-generics` resource package functions (`{Resource}Object`, `{Resource}PolicyObject`,
+`{Resource}BindingObject`, `{Resource}InternalObject`, `{Subject}User`), colocated with the
+`{Resource}Name` functions. Services and ext authz never concatenate tuple strings by hand,
+so write side and check side can never diverge and the hashing stays invisible at the call sites.
+
 ## Conclusion
 
-Lets start this brainstorming session. Please take a look at the services and lets discuss the challenges in easy words.
+Lets start building with all the informations you have. btw: do not publish any protos yourself - change the code if needed but do not link to the new version. let me know if i need to do this for you and release a new version.
