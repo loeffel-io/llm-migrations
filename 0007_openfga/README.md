@@ -88,6 +88,10 @@ Exceptions and rules:
 - b2b (`organization`, `membership`, `membershipInvitation`) is disabled and will not go live.
 - groups: post-go-live, design TBD (self-leave via group relation vs. full membership chain like organization). the two well-known groups `all-accounts` (wildcard, seeded) and `all-authenticated-accounts` (contextual, see challenge 1) exist at go live.
 - `GetIamPolicy` on a never-policied resource returns an empty policy from the service db (no fga read).
+- billing: the `price` and `userBillingAccount` batch write tuples outboxes are permanent no-ops
+  (price writes nothing per the matrix, userBillingAccount is parent-policied via `user`).
+  Delete both outboxes incl. their tables, `ToAuthorizationTuples` methods and main.go wiring.
+  billingstripe correctly has no tuple outbox at all and stays that way.
 
 ### challenge 3
 

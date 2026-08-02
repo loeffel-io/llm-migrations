@@ -1,0 +1,223 @@
+# 0007 - OpenFGA: Handover / Context for the next agent
+
+Read this together with `README.md` (the four challenges + solutions) and `resourcematrix4.xlsx`
+(single source of truth for all resources). This file contains everything decided and done so far,
+plus the exact next steps. `open.csv`, `resourcematrix.csv`, `resourcematrix2.csv`, `resourcematrix3.csv`
+are outdated drafts, ignore them.
+
+## Architecture recap (verified in code)
+
+- istio ext authz -> earth-authorization-service -> earth-openfga-service (openfga server).
+- Only the authorization-service talks to openfga (`internal/openfga/openfga_v1/openfga.go`,
+  `BatchWriteTuples` with duplicate-write/missing-delete IGNORE options -> idempotent).
+- Services write tuples via outbox tables (`*_batch_write_tuples_outboxes`, built on
+  `global-generics/pkg/outbox`) -> outbox worker calls `BatchWriteTuples` gRPC on the
+  authorization-service. Flow: service DB tx -> outbox row -> worker -> authz service -> openfga.
+- Ext authz checks build object slices like `["project:"+projectRid, "content:"+contentRid]`
+  (OR semantics, project is always the fallback) in each service's `internal/service_authorization/**`.
+- The ext authz account arrives via istio-validated header `x-mindful-email`
+  (`earth-authorization-service/internal/envoy/service/auth/auth_v3/external_auth.go:52`).
+- Anonymous callers are checked as `account:*`
+  (`internal/service/authorization/model/model_v1/authorization_model.go:133`).
+- Each project has its own openfga store. Model: `earth-openfga-service/fga/model.fga` (~1800 lines),
+  per-service test yamls `fga/*.fga.yaml`, bazel test via `fga.bzl`.
+- Model conventions (header comment): `_` prefixed relations = internal (grants, pass-throughs,
+  helpers like `_member`), non-`_` relations = real permissions checked by ext authz. Permission
+  naming: `{service}_{resource}_{method}`, relation limit 50 chars (longest is 49!).
+
+## Key decisions (all finalized, do not re-litigate)
+
+1. **account:{firebaseUid}** is subject only (never a path segment, max 128 chars fits user limit).
+   The user resource rid is a server generated uuid, decoupled from the uid.
+2. **serviceAccount:{rid}** instead of email (PII + the email form breaks the 256 user limit).
+   The rid must become a jwt claim. serviceAccount is dual-natured like gcp: subject AND
+   policyable resource (`JA: LAZY`, iam service, "after release").
+3. **Openfga api limits** (not mysql column limits): object = full `type:id` <= 256 incl. type name,
+   user <= 512 postgres / 256 mysql. Depth 4 object ids (255 chars) NEVER fit as object -> hard max
+   depth 3 rid segments (= depth 4 incl. project) for any resource with an openfga type.
+   Deeper resources inherit from the nearest policied ancestor (gcp does the same: JobRun/Chunk/etc.
+   have no setIamPolicy; policies attach shallow).
+4. **Policies/bindings are hashed**: `policy = Hash(resourcePath)`, `binding = Hash(resourcePath, roleRid)`.
+   They are pure graph join keys: never in urls, never listed, never parsed. `GetIamPolicy` reads the
+   service DB, not openfga.
+5. **storage object ids are hashed** the same way (`object:{b32sha256:path}`); the api resource name
+   keeps the readable path. Storage service resolves hash -> path via an indexed column when it needs
+   ListObjects translation (deferred until actually needed).
+6. **Hashing happens at service level** via `global-generics` (NOT in the authorization-service):
+   keeps the authz proto strict (customer-facing api later). The authz service tuple proto stays at
+   openfga limits (`earth-authorization-service-proto/.../authorization_model.proto:175`, user 512 / object 256).
+7. **`_role` / `_sku` split** (challenge 3): grants move to `_role`/`_sku` types; new empty resource
+   types `role`/`sku` + parent links written at creation. Role/sku policy chains deferred (additive).
+   Reason: grant types occupy the whole `_` relation namespace, pass-through relations would collide
+   (e.g. `_resourcemanager_project_get` is a grant leaf on role but a pass-through on resources).
+8. **Parent links always point to the direct AIP parent**, never skip levels:
+   `tier -> service -> project`, `sku -> service`, NOT `tier -> project`. Avoids backfills when a level
+   becomes policyable.
+9. **service** is a future resourcemanager resource (currently only checked by billing/billingstripe
+   ext authz). Type + `service -> project` link needed at go live (seeder ok until resourcemanager owns it).
+10. **Contextual tuple** for `group:all-authenticated-accounts` (challenge 1 / README). Constant per
+    account -> no cache fragmentation. Rule: contextual tuples may only assert facts derivable from
+    trusted request context (the verified jwt). Never use them for ownership/existence facts.
+11. **Group rids rename** = the allUsers/allAuthenticatedUsers rename: `group:all-users` -> `all-accounts`
+    (auth seeder `internal/seeder/account/account_v1/account.go:41`, resourcemanager
+    `internal/database/model/model_v1/project_policy.go:488,499,542,553,602,614` - TODOs already there),
+    `group:all-authenticated-users` -> `all-authenticated-accounts`. The `google.iam.v1.Policy` member
+    mapping already uses the new names (`GetAllAccounts()`/`GetAllAuthenticatedAccounts()`).
+12. **Groups** (customer-facing) come post-go-live, live in the user-service (FK integrity, mirrors the
+    organization/membership pattern), members are accounts only (no service accounts, stricter than
+    google by design). GroupMembership: design TBD (self-leave via group relation vs. full chain).
+13. **b2b is disabled for go live**: organization, membership, membershipInvitation, organization
+    billing/entitlements, content collections. Model types + outbox code stay, endpoints unreachable.
+    Invitation flow must never write `account:{email}` tuples when it comes back (resolve at accept time).
+14. **Lazy policies** (challenge 2): `JA: LAZY` = type + parent link at creation, policy/binding chain
+    written on `SetIamPolicy` (full chain in one BatchWriteTuples incl. resource -> policy link).
+    Works because ext authz always checks project as fallback. Delete of a lazily-policied resource must
+    delete the (possibly existing) policy chain: ids are deterministic hashes, recompute from the stored
+    `google.iam.v1.Policy` in the service db; missing-delete is IGNOREd, so it is safe.
+15. **Instant (non-lazy) tuples at creation** only for: project (policy+binding, exists), user
+    (userPolicy + userBinding:{rid}/user-user-admin + account tuples, exists in `user.go:531`),
+    userEntitlement (sku + account tuples, exists in `user_entitlement.go:929`).
+16. Known model bug to NOT copy: `content_instructorImage_*` relations on `project` point at
+    `_content_instructorProfile_*` (model.fga:186-193, copy-paste).
+17. Ext authz checks against non-existing types must be removed: `contentInfo:`, `contentImage:`,
+    `contentAudio:`, `contentVideo:`, `instructorProfile:`, `instructorImage:`, `tagInfo:`,
+    `categoryInfo:` object entries in content-service service_authorization files (the types do not
+    exist in the model; these entries can never match).
+18. Anonymous firebase sign-in is NOT supported. If it ever is, the contextual tuple must check the
+    `sign_in_provider` claim.
+19. `x-mindful-email` header -> rename (e.g. `x-mindful-account`), carries uid. Part of PII cleanup.
+20. billing `price` + `userBillingAccount` outboxes are permanent no-ops -> delete (README challenge 2).
+
+## Status: what is DONE
+
+### global-generics (RELEASED as v0.40.0)
+
+Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/11 tests + vet + fmt green.
+**Released as `v0.40.0`** - services can bump to this version to get the tuple object functions
+(user does the version bumps or approves them explicitly).
+
+- `internal/grpc/tuple/tuple_v1/tuple.go`: `Hash(parts ...string) string` =
+  lowercase(`base32.StdEncoding.WithPadding(NoPadding)` of sha256(strings.Join(parts, "/"))), 52 chars.
+  Table-driven test in `tuple_test.go`.
+- Tuple functions colocated in `pkg/grpc/resource/mindful/earth/**` next to the `{Resource}Name`
+  functions. Comment style: 2 lines (`// XObject builds the openfga x object.` + `// Example: "..."`).
+  Hash examples written as `{b32sha256:...}`.
+- Naming: `{Resource}Object`, `{Resource}PolicyObject`, `{Resource}BindingObject`,
+  `{Resource}InternalObject` (`_role:`/`_sku:`), `{Subject}Subject` (account, serviceAccount).
+  NO wildcard helpers (pass `"*"` as rid). NO Parse counterparts (one-way by design).
+- Server-generated rids are `uuid.UUID` params (user, membership, membershipInvitation,
+  userBillingAccount, userEntitlement) - including the pre-existing `*Name`/`Parse*Name` functions for
+  user, profile, userBillingInfo, userBillingAccount, userEntitlement, membership
+  (`Next[uuid.UUID]`, examples updated). Human rids stay `string`.
+- Existing functions: Project(+Policy/Binding/EntitlementPolicy), Service, User(+Policy/Binding),
+  Organization(+Policy/Binding), Membership(+Policy/Binding), Object(+Policy/Binding, all hashed id),
+  Content(+Policy/Binding/EntitlementPolicy), Instructor/Tag/Category(+Policy/Binding),
+  Email(+Policy/Binding), Role+RoleInternal, Sku+SkuInternal, Tier, UserEntitlement, Group,
+  AccountSubject, ServiceAccountSubject.
+- Deliberately NOT existing: PriceObject, StripePriceObject (no types per matrix),
+  membershipInvitation tuple functions (b2b redesign pending), object tests for the resource files
+  (user removed them; only the Hash test remains).
+- Legacy duplicate BUILD targets exist from an old path move; gazelle does not maintain them ->
+  tuple_v1 dep was added manually where needed.
+- No `//:format` target in this repo; use `bazel run @rules_go//go -- fmt ./...`.
+
+### Documentation
+
+- `README.md`: all four challenge solutions final (this includes contextual tuples, group renames,
+  lazy policy rules, no-op outbox deletion, tuple function rule).
+- `resourcematrix4.xlsx`: single source of truth. Reading rule: `Own Iam Policy` decides whether an
+  openfga type exists (`JA` = instant tuples, `JA: LAZY` = type + parent link now / policy chain on
+  SetIamPolicy, `NEIN` = no type at all; object column on NEIN rows is documentation only).
+  Open nits: Group/GroupMembership rows missing, some parent refs show as floats (excel).
+
+## Status: what is NOT done (the actual work, in order)
+
+0. ~~User releases global-generics~~ DONE: released as **v0.40.0** (tuple object functions available;
+   services need the dependency bump to v0.40.0 - user does/approves version bumps).
+1. **earth-openfga-service**: rewrite `fga/model.fga`:
+   - rename `type role` -> `type _role`, `type sku` -> `type _sku`; binding/entitlement member types
+     `[role]` -> `[_role]`, `[sku]` -> `[_sku]` (relation names stay `role`/`sku`).
+   - new empty types: `role`, `sku`, `service`, `tier`, `email` (+ parent link relations:
+     `project` gets `role: [role]`, `sku` gets... NO - sku/tier link to `service`, service links to
+     `project`, email links to `project`; exact edges per matrix + decision 8).
+   - fix decision 16 copy-paste bug? (ask user first, it changes behavior).
+   - update all format comments (uuid rids, hashed policy/binding ids as `{b32sha256:...}`,
+     `account:{firebaseUid}`, `serviceAccount:{rid}`).
+   - header comment: document the invariants (rid <= 63, hashed policies/bindings, max depth,
+     subject-only account).
+   - extend/adjust `fga/*.fga.yaml` tests. Same bazel commands as all other services.
+2. **earth-authorization-service**: contextual tuple for `all-authenticated-accounts` on authenticated
+   checks (both check paths in `internal/service/authorization/model/model_v1/authorization_model.go`
+   and `internal/service_authorization/.../authorization_model.go:118`); openfga client
+   `BatchCheckPermissions` needs contextual tuple support (`fgaclient` supports it).
+   Account revocation cache lookup has a `// TODO: will work after email to rid migration` at line 105.
+3. **earth-billing-service** (reference implementation for the pattern):
+   - `_sku:` rename in `internal/database/model/model_v1/sku.go:813-838` (grants) via `SkuInternalObject`.
+   - sku -> service link tuples in create/delete (`SkuObject`, service object via resourcemanager pkg).
+   - tier: implement `ToAuthorizationTuples` (currently commented + stale: wrong id format
+     `tier:{rid}` and wrong parent project instead of service) -> `TierObject(serviceRid, tierRid)`
+     + `tier -> service` link only (lazy policy, no policy tuples at creation).
+   - delete price + userBillingAccount outboxes (tables, methods, main.go:276,281 wiring).
+   - user entitlement: `_sku:` refs in `user_entitlement.go:935,1013` via `SkuInternalObject`;
+     uuid rids via `UserEntitlementObject`.
+   - replace ALL hand-built tuple strings in `service_authorization/**` with package functions
+     (e.g. `tier.go:96,603,689,775` checks `tier:{service}/{tier}`).
+4. **earth-iam-service** (NO AGENTS.md in repo, use billing's conventions): `_role:` rename in
+   `internal/database/model/model_v1/role.go:422-457` via `RoleInternalObject`; role -> project link
+   tuples; note `role.go:425,448` writes `account:*`/`serviceAccount:*` grant tuples (keep, use
+   `AccountSubject("*")`).
+5. **earth-user-service**: user rid -> uuid; remove `group:all-authenticated-users` membership tuples
+   (`user.go:530-533,566-569`); default policy/binding tuples via `UserObject`/`UserPolicyObject`/
+   `UserBindingObject`/`AccountSubject` with uid instead of email (`user.go:531,541,546,548,551,567...`,
+   also `internal/service/user/user_v1/user.go:1906` policy member string);
+   membership files keep working but b2b is disabled (email tuples in `membership.go:327...`,
+   `membership_invitation.go:368,406` stay untouched or get the uuid treatment if cheap).
+6. **earth-resourcemanager-service**: group rid renames (decision 11); projectPolicy/Binding hashing
+   via package functions (`project_policy.go` writes `projectBinding:{roleRid}` today -> becomes
+   `ProjectBindingObject(projectRid, roleRid)` hashed; verify against model, projectPolicy id today is
+   `projectPolicy:mindful`); service seeder or outbox for `service -> project` links (decision 9).
+7. **earth-storage-service**: object id hashing via `ObjectObject` (model comment `objectPolicy:1313`
+   already says "rid sha256sum" - verify what the code actually writes today); ext authz object strings.
+8. **earth-auth-service**: seeder rename `group:all-users` -> `all-accounts` + `AccountSubject`;
+   uid instead of email everywhere; serviceAccount rid as jwt claim (needed for decision 2).
+9. **earth-content-service**: remove non-existing-type object entries from service_authorization
+   (decision 17); tuple strings via package functions; contentPolicy outbox is commented out in
+   `cmd/earth_content_service/main.go:355` - clarify with user whether to enable.
+10. **earth-email-service**: NEW email type tuples: email -> project link at creation (needs a first
+    tuple outbox in this service, copy the billing pattern).
+11. **Proto regexes** (all `*-proto` repos are checked out locally next to the services):
+    user rid pattern `[a-zA-Z0-9-]{1,128}` -> uuid pattern everywhere it appears (user, billing,
+    billingstripe protos embed it in resource name patterns); membership rid same; fix org billingInfo
+    inconsistency (`organizations/[a-zA-Z0-9-]{1,128}` in billing proto vs `[a-z]...` elsewhere).
+    DO NOT publish/tag proto versions - change code, user releases.
+12. **Ext authz header rename** `x-mindful-email` -> `x-mindful-account` (istio config may be outside
+    these repos - ask user where the istio RequestAuthentication/headers live).
+
+Work per repo: feature branch (fork from current branch), `bazel build //...`, `bazel test //...`,
+`bazel run //:format` (except global-generics: go fmt, see above), gazelle when deps change. NEVER
+commit/push without explicit user approval. Consistency across services is the top priority: implement
+the pattern once in billing, then replicate verbatim.
+
+## Hard constraints (user-imposed)
+
+- Do NOT publish/link proto or global-generics versions; the user releases. Say explicitly when a
+  release is the blocker.
+- No new dependencies without approval. No touching build/, deployments/, scripts/bazel, tools/format.
+- Table-driven tests only (repo convention). Short 2-line function comments like the existing ones.
+- b2b + collections stay disabled; do not remove their code.
+- The user speaks German-flavored English; challenges use JA/NEIN in the matrix.
+
+## Facts that took long to establish (do not re-derive)
+
+- googleapis: deep resources (5-6 segments) exist but never have setIamPolicy; IAM attaches shallow.
+  ServiceAccount is `iam.googleapis.com/ServiceAccount` `projects/{project}/serviceAccounts/{sa}`
+  WITH own policy. Groups are cloudidentity, not resourcemanager/iam -> our groups go to user-service.
+- openfga proto (openfga/api): TupleKey user `max_bytes: 512`, object pattern `^[^\s]{2,256}$`,
+  relation `^[^:#@\s]{1,50}$`. The 128/255/256 numbers in README are mysql column limits.
+- The authz service tuple proto mirrors these limits exactly (user 512, object 256) - stays strict.
+- Contextual tuple cache: constant per account -> no fragmentation. openfga `ClientContextualTupleKey`.
+- `fga model validate` should accept `_role` as type name (DSL allows leading underscore) - verify
+  during step 1; if the DSL rejects it, fallback naming discussion needed (e.g. `roleInternal`).
+- Depth math with hashes: worst object string is `membershipInvitationBinding:` + 52 = 80 chars.
+  Everything fits with huge headroom. Only unhashed resource objects at depth 3 (191 + type <= 256)
+  bind the budget.
