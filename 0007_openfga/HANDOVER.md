@@ -50,6 +50,10 @@ are outdated drafts, ignore them.
    types `role`/`sku` + parent links written at creation. Role/sku policy chains deferred (additive).
    Reason: grant types occupy the whole `_` relation namespace, pass-through relations would collide
    (e.g. `_resourcemanager_project_get` is a grant leaf on role but a pass-through on resources).
+   UPDATE (user decision, overrides the old "relation names stay role/sku" note): the grant link
+   RELATIONS are prefixed too (`_role` on bindings, `_sku` on entitlements). Non-prefixed `role`/`sku`
+   relations exist only as parent links (`role` on project, `sku`/`tier` on service). Internal vs
+   public must be unambiguous everywhere. Service tuple writers must write `relation: "_role"`/`"_sku"`.
 8. **Parent links always point to the direct AIP parent**, never skip levels:
    `tier -> service -> project`, `sku -> service`, NOT `tier -> project`. Avoids backfills when a level
    becomes policyable.
@@ -85,8 +89,31 @@ are outdated drafts, ignore them.
     exist in the model; these entries can never match).
 18. Anonymous firebase sign-in is NOT supported. If it ever is, the contextual tuple must check the
     `sign_in_provider` claim.
-19. `x-mindful-email` header -> rename (e.g. `x-mindful-account`), carries uid. Part of PII cleanup.
+19. `x-mindful-email` header is dead: ext authz reads the account from the EXISTING istio-forwarded
+    `x-mindful-uid` header (no new header, no istio change needed for the read side). The istio-side
+    removal of the email header itself is still step 12 (user-owned).
 20. billing `price` + `userBillingAccount` outboxes are permanent no-ops -> delete (README challenge 2).
+21. **Role rids are fixed kebab-case iam names**: `user-user-admin`, `user-organization-admin`,
+    `user-membership-admin`, `user-membership-invitation-user`, `storage-object-admin`,
+    `content-content-admin` (plus `admin`, `editor`, `customer`, `guest`). No camelCase role rids.
+22. **`user_user_create` permission exists** (full chain project/projectPolicy/projectBinding/_role,
+    granted to `_role:user-user-admin` in the iam seeder). Added ahead of time so it is not missed.
+23. **CreateUserRequest has NO `user_id` field** (removed entirely, `user = 2`, no reserved - the env
+    reset makes reserved pointless). User rid is server generated uuid. api-linter not-precedent
+    comment on the message. Client-specified ids rejected deliberately (predictable/vanity id risk,
+    consistency with all other server-generated rids); purely additive to re-add later.
+24. **Contextual tuple lives INSIDE the openfga client** (`internal/openfga/openfga_v1/openfga.go`,
+    private `contextualTuples(user)`): derived iff user is `account:` and not `account:*`;
+    serviceAccounts get none. NOT a parameter on the `OpenfgaClient` interface (kept clean, callers
+    cannot forget or fake the invariant). Do not re-add it to the interface.
+25. **Revocation cache bug fixed**: user-events consumer keyed by user rid, check side by account uid.
+    Consumer now fetches `User.account` (ACCOUNT read mask) and keys by parsed account rid.
+26. Logging: `grpc.account` (uid) + `grpc.tenant` (firebase tenant, carries the project prefix
+    `{projectRid}-...`) together identify caller and project. No email anywhere.
+27. Old model relations removed entirely (not deprecated): `billingstripe_stripePrice_localize`
+    chain, `_auth_account_testAccountIamPermissions`, the dead `lucas@mindful.com` bypasses in the
+    authz service_authorization. Breaking-migration rule: delete dead stuff, do not keep it.
+28. **Git branches**: `chore/loeffel-io/0007` in every touched repo.
 
 ## Status: what is DONE
 
@@ -134,25 +161,27 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
 
 0. ~~User releases global-generics~~ DONE: released as **v0.40.0** (tuple object functions available;
    services need the dependency bump to v0.40.0 - user does/approves version bumps).
-1. **earth-openfga-service**: rewrite `fga/model.fga`:
-   - rename `type role` -> `type _role`, `type sku` -> `type _sku`; binding/entitlement member types
-     `[role]` -> `[_role]`, `[sku]` -> `[_sku]` (relation names stay `role`/`sku`).
-   - new empty types: `role`, `sku`, `service`, `tier`, `email` (+ parent link relations:
-     `project` gets `role: [role]`, `sku` gets... NO - sku/tier link to `service`, service links to
-     `project`, email links to `project`; exact edges per matrix + decision 8).
-   - fix decision 16 copy-paste bug? (ask user first, it changes behavior).
-   - update all format comments (uuid rids, hashed policy/binding ids as `{b32sha256:...}`,
-     `account:{firebaseUid}`, `serviceAccount:{rid}`).
-   - header comment: document the invariants (rid <= 63, hashed policies/bindings, max depth,
-     subject-only account).
-   - extend/adjust `fga/*.fga.yaml` tests. Same bazel commands as all other services.
-2. **earth-authorization-service**: contextual tuple for `all-authenticated-accounts` on authenticated
-   checks (both check paths in `internal/service/authorization/model/model_v1/authorization_model.go`
-   and `internal/service_authorization/.../authorization_model.go:118`); openfga client
-   `BatchCheckPermissions` needs contextual tuple support (`fgaclient` supports it).
-   Account revocation cache lookup has a `// TODO: will work after email to rid migration` at line 105.
-3. **earth-billing-service** (reference implementation for the pattern):
+1. ~~**earth-openfga-service**: rewrite `fga/model.fga`~~ DONE (branch `chore/loeffel-io/0007`,
+   uncommitted, deployed to the `loeffel-io` env):
+   - `_role`/`_sku` types AND relations (decision 7 update), new empty types `role`, `sku`, `service`
+     (+ `sku`/`tier` child links), `tier`, `email`; `category`/`service`/`role`/`email` parent links on
+     project; `category` added to the project get/configGet unions (was missing, only policied type).
+   - decision 16 instructorImage bug FIXED (user approved).
+   - kebab-case role rids (decision 21), `user_user_create` chain (decision 22), TODO-remove
+     relations deleted (decision 27). All format comments match global-generics v0.40.0.
+   - all 7 yamls rewritten + new `earth_email_service.fga.yaml` + BUILD targets. Test-level `tuples:`
+     blocks emulate the contextual tuple. Policy/binding ids in yamls stay readable hash preimages
+     (model is id-agnostic; production writes `{b32sha256:...}` via global-generics).
+   - DSL accepts `_role`/`_sku` type names (verified via fga cli v0.7.8, no fallback naming needed).
+2. ~~**earth-authorization-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted):
+   - contextual tuple inside the openfga client (decision 24), interface unchanged.
+   - account from `x-mindful-uid` (decision 19), email out of all logs, tenant added (decision 26).
+   - revocation cache fix (decision 25), dead email bypasses removed (decision 27).
+   - global-generics bumped to v0.40.0 in go.mod AND MODULE.bazel git_override (both needed!).
+   - tuple strings via `AccountSubject`/`GroupObject`/`ProjectObject`.
+3. **earth-billing-service** (reference implementation for the pattern; NEXT UP):
    - `_sku:` rename in `internal/database/model/model_v1/sku.go:813-838` (grants) via `SkuInternalObject`.
+   - entitlement sku link tuples must write `relation: "_sku"` (decision 7 update).
    - sku -> service link tuples in create/delete (`SkuObject`, service object via resourcemanager pkg).
    - tier: implement `ToAuthorizationTuples` (currently commented + stale: wrong id format
      `tier:{rid}` and wrong parent project instead of service) -> `TierObject(serviceRid, tierRid)`
@@ -162,14 +191,19 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
      uuid rids via `UserEntitlementObject`.
    - replace ALL hand-built tuple strings in `service_authorization/**` with package functions
      (e.g. `tier.go:96,603,689,775` checks `tier:{service}/{tier}`).
+   - remove `billingstripe_stripePrice_localize` from billing/billingstripe ext authz if wired
+     (relation deleted from the model, decision 27).
 4. **earth-iam-service** (NO AGENTS.md in repo, use billing's conventions): `_role:` rename in
    `internal/database/model/model_v1/role.go:422-457` via `RoleInternalObject`; role -> project link
    tuples; note `role.go:425,448` writes `account:*`/`serviceAccount:*` grant tuples (keep, use
-   `AccountSubject("*")`).
-5. **earth-user-service**: user rid -> uuid; remove `group:all-authenticated-users` membership tuples
+   `AccountSubject("*")`). Binding role link tuples write `relation: "_role"` (decision 7 update).
+   Seeded role rids must be the kebab-case names (decision 21).
+5. **earth-user-service**: user rid -> uuid (proto v0.26.0 released, `user_id` field GONE - server
+   generates the rid, decision 23); remove `group:all-authenticated-users` membership tuples
    (`user.go:530-533,566-569`); default policy/binding tuples via `UserObject`/`UserPolicyObject`/
    `UserBindingObject`/`AccountSubject` with uid instead of email (`user.go:531,541,546,548,551,567...`,
-   also `internal/service/user/user_v1/user.go:1906` policy member string);
+   also `internal/service/user/user_v1/user.go:1906` policy member string); binding role link tuples
+   write `relation: "_role"` with rid `user-user-admin` (decisions 7+21);
    membership files keep working but b2b is disabled (email tuples in `membership.go:327...`,
    `membership_invitation.go:368,406` stay untouched or get the uuid treatment if cheap).
 6. **earth-resourcemanager-service**: group rid renames (decision 11); projectPolicy/Binding hashing
@@ -185,18 +219,23 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
    `cmd/earth_content_service/main.go:355` - clarify with user whether to enable.
 10. **earth-email-service**: NEW email type tuples: email -> project link at creation (needs a first
     tuple outbox in this service, copy the billing pattern).
-11. **Proto regexes** (all `*-proto` repos are checked out locally next to the services):
-    user rid pattern `[a-zA-Z0-9-]{1,128}` -> uuid pattern everywhere it appears (user, billing,
-    billingstripe protos embed it in resource name patterns); membership rid same; fix org billingInfo
-    inconsistency (`organizations/[a-zA-Z0-9-]{1,128}` in billing proto vs `[a-z]...` elsewhere).
-    DO NOT publish/tag proto versions - change code, user releases.
-12. **Ext authz header rename** `x-mindful-email` -> `x-mindful-account` (istio config may be outside
-    these repos - ask user where the istio RequestAuthentication/headers live).
+11. ~~**Proto regexes**~~ DONE + RELEASED: user rid + membership rid -> uuid pattern, org billingInfo
+    inconsistency fixed, `CreateUserRequest.user_id` removed (decision 23). Released as:
+    user-proto v0.26.0, user-internal-proto v0.5.0, billing-proto v0.5.0, billingstripe-proto v0.3.0,
+    email-proto v0.2.0. Untouched by design: auth-proto accounts pattern (firebase uid, decision 1),
+    authorization-proto tuple limits (decision 6). Generated `.pb.go` are checked in: run the
+    `write_source_files` targets (`bazel query 'kind(_write_source_file, //...)'`) after proto edits.
+    Known env issue: email-proto `//deployments/production/npm` type-check fails with 403 (npm
+    registry auth expired), unrelated to changes - proto tests all pass.
+12. **Ext authz header cleanup** (istio config, user-owned): remove the `x-mindful-email` claim
+    header from istio RequestAuthentication. The authz service already reads `x-mindful-uid`
+    (decision 19), so this is pure removal, not a rename.
 
-Work per repo: feature branch (fork from current branch), `bazel build //...`, `bazel test //...`,
-`bazel run //:format` (except global-generics: go fmt, see above), gazelle when deps change. NEVER
-commit/push without explicit user approval. Consistency across services is the top priority: implement
-the pattern once in billing, then replicate verbatim.
+Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel build //...`,
+`bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when
+deps change. NEVER commit/push without explicit user approval. Consistency across services is the top
+priority: implement the pattern once in billing, then replicate verbatim.
+Nothing is committed yet in any repo - all changes sit uncommitted on the branches.
 
 ## Hard constraints (user-imposed)
 
@@ -216,8 +255,11 @@ the pattern once in billing, then replicate verbatim.
   relation `^[^:#@\s]{1,50}$`. The 128/255/256 numbers in README are mysql column limits.
 - The authz service tuple proto mirrors these limits exactly (user 512, object 256) - stays strict.
 - Contextual tuple cache: constant per account -> no fragmentation. openfga `ClientContextualTupleKey`.
-- `fga model validate` should accept `_role` as type name (DSL allows leading underscore) - verify
-  during step 1; if the DSL rejects it, fallback naming discussion needed (e.g. `roleInternal`).
+- `fga model validate` ACCEPTS `_role`/`_sku` type names (verified, fga cli v0.7.8). No fallback needed.
+- Service repos pin global-generics TWICE: go.mod AND a `git_override` in MODULE.bazel - bump both
+  or bazel silently builds against the old tag.
+- fga cli test yamls: a test-level `tuples:` block is passed as contextual tuples to every check in
+  that test - exact emulation of what the authz service does at runtime.
 - Depth math with hashes: worst object string is `membershipInvitationBinding:` + 52 = 80 chars.
   Everything fits with huge headroom. Only unhashed resource objects at depth 3 (191 + type <= 256)
   bind the budget.

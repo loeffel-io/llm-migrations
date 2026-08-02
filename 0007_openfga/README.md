@@ -54,7 +54,7 @@ we switch to the firebase uid because its only used for the check. more at solut
   writes at user creation (user.go) get removed: no lifecycle, no chicken-and-egg at signup, always correct.
   We do not support firebase anonymous sign-in; if that ever changes, the contextual tuple must check the
   `sign_in_provider` claim first.
-- the `x-mindful-email` ext authz header gets renamed (e.g. `x-mindful-account`) and carries the uid, no email in headers/logs.
+- the `x-mindful-email` ext authz header is dead: the authz service reads the account from the existing `x-mindful-uid` header, no email in headers/logs. istio-side removal of the email header is a separate user-owned step.
 - membership invitations are keyed by email and would write `account:{email}` tuples.
   b2b is disabled for go live, so this is out of scope for now. before b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
 - service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4).
@@ -104,14 +104,16 @@ Could be that we need internal types for this like `_role` and `_sku`, but very 
 
 we need to switch to `_role` and `_sku` to make it possible that `role` and `sku` can later have their own policy.
 `_role` and `_sku` is only for internal grants (they keep all the `_permission` relations, bindings/entitlements point to them).
+The grant link relations are prefixed too: bindings use `define _role: [_role]`, entitlements `define _sku: [_sku]`.
+The non-prefixed `role`/`sku` relations exist only as parent links on `project`/`service`. Internal vs public is always visible from the name.
 
 Why the split is needed: the grant types occupy the whole `_` relation namespace (e.g. `_resourcemanager_project_get` as grant leaf), so a resource type can never share the type with the grants (a resource needs the same relation names as hierarchy pass-throughs). Renaming relations is impossible (50 char relation limit, we are already at 49).
 
 What we do now (per challenge 2 rules, avoids a backfill migration later):
 
-- rename `type role` -> `type _role`, `type sku` -> `type _sku` in the model and all tuple writers (iam, billing, user seeder)
-- create the empty resource types `role` and `sku` + their parent links on `project` (`define role: [role]`, `define sku: [sku]`)
-- write the `role -> project` and `sku -> project` link tuples in the create/delete outboxes
+- rename `type role` -> `type _role`, `type sku` -> `type _sku` in the model and all tuple writers (iam, billing, user seeder); tuple writers also write `relation: "_role"`/`"_sku"` on bindings/entitlements
+- create the empty resource types `role` and `sku` + their parent links (`role -> project`, `sku -> service`)
+- write the `role -> project` and `sku -> service` link tuples in the create/delete outboxes
 
 What we defer (purely additive later, zero tuple migration): `rolePolicy`/`roleBinding`, `skuPolicy`/`skuBinding`, the non-underscore `iam_role_*`/`billing_sku_*` relations and `SetIamPolicy` support.
 
