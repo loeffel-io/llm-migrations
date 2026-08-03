@@ -117,6 +117,8 @@ What we do now (per challenge 2 rules, avoids a backfill migration later):
 
 What we defer (purely additive later, zero tuple migration): `rolePolicy`/`roleBinding`, `skuPolicy`/`skuBinding`, the non-underscore `iam_role_*`/`billing_sku_*` relations and `SetIamPolicy` support.
 
+Sku entitlement targets: `Sku.Object` is an open set (`{type}:{rid}`), NOT a whitelist - customers can add new `{type}EntitlementPolicy` types to the model later, like custom iam permissions. The value stays readable in db and api; only the userEntitlement tuple builder resolves it via the generic `authorizationmodelresourcev1.EntitlementPolicyObject` to `{type}EntitlementPolicy:{b32sha256:rid}`. Validated at sku write time. Currently resolvable at go live: `project:` and `content:` (content needs its entitlement policy link outbox enabled).
+
 ### challenge 4
 
 #### problem

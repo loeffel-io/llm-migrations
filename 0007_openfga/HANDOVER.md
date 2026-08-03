@@ -114,14 +114,27 @@ are outdated drafts, ignore them.
     chain, `_auth_account_testAccountIamPermissions`, the dead `lucas@mindful.com` bypasses in the
     authz service_authorization. Breaking-migration rule: delete dead stuff, do not keep it.
 28. **Git branches**: `chore/loeffel-io/0007` in every touched repo.
+29. **Sku entitlement target is an open set** (platform extensibility like gcp custom permissions):
+    customers can add `{type}EntitlementPolicy` types to the model later and use them in skus.
+    Therefore NO type whitelist in billing. Generic mapping lives in global-generics
+    `authorizationmodelresourcev1.EntitlementPolicyObject(object)`: `{type}:{rid}` ->
+    `{type}EntitlementPolicy:{b32sha256:rid}` (rejects empty type/rid, missing `:`, `*` rid).
+    `Sku.Object` stays READABLE in db and api (write `content:yoga-1`, read it back identical);
+    the hash happens ONLY in the userEntitlement tuple builder. Called directly at the call sites,
+    deliberately NOT a method on the Sku struct (user decision). Validated at sku write time
+    (FromProto) so malformed objects fail at CreateSku, not in the outbox. Unknown types produce
+    inert tuples (check never matches) - same failure mode as gcp unattached policies.
+    Content-scoped skus additionally require the content service to write
+    `contentEntitlementPolicy -> content` links (step 9 outbox). User adds the target rule to the matrix.
 
 ## Status: what is DONE
 
-### global-generics (RELEASED as v0.40.0)
+### global-generics (RELEASED as v0.41.0)
 
-Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/11 tests + vet + fmt green.
-**Released as `v0.40.0`** - services can bump to this version to get the tuple object functions
-(user does the version bumps or approves them explicitly).
+Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + tests + vet + fmt green.
+**v0.40.0** = tuple object functions; **v0.41.0** (branch `chore/loeffel-io/0007`) adds the generic
+`EntitlementPolicyObject(object string)` in `pkg/grpc/resource/mindful/earth/authorization/model/model_v1`
+(decision 29, table-driven test included). Services should pin v0.41.0.
 
 - `internal/grpc/tuple/tuple_v1/tuple.go`: `Hash(parts ...string) string` =
   lowercase(`base32.StdEncoding.WithPadding(NoPadding)` of sha256(strings.Join(parts, "/"))), 52 chars.
@@ -159,8 +172,8 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
 
 ## Status: what is NOT done (the actual work, in order)
 
-0. ~~User releases global-generics~~ DONE: released as **v0.40.0** (tuple object functions available;
-   services need the dependency bump to v0.40.0 - user does/approves version bumps).
+0. ~~User releases global-generics~~ DONE: v0.40.0 (tuple object functions) + v0.41.0
+   (generic EntitlementPolicyObject, decision 29). Services pin v0.41.0; billing already does.
 1. ~~**earth-openfga-service**: rewrite `fga/model.fga`~~ DONE (branch `chore/loeffel-io/0007`,
    uncommitted, deployed to the `loeffel-io` env):
    - `_role`/`_sku` types AND relations (decision 7 update), new empty types `role`, `sku`, `service`
@@ -178,26 +191,37 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
    - account from `x-mindful-uid` (decision 19), email out of all logs, tenant added (decision 26).
    - revocation cache fix (decision 25), dead email bypasses removed (decision 27).
    - global-generics bumped to v0.40.0 in go.mod AND MODULE.bazel git_override (both needed!).
+     TODO when next touched: bump to v0.41.0 like billing.
    - tuple strings via `AccountSubject`/`GroupObject`/`ProjectObject`.
-3. **earth-billing-service** (reference implementation for the pattern; NEXT UP):
-   - `_sku:` rename in `internal/database/model/model_v1/sku.go:813-838` (grants) via `SkuInternalObject`.
-   - entitlement sku link tuples must write `relation: "_sku"` (decision 7 update).
-   - sku -> service link tuples in create/delete (`SkuObject`, service object via resourcemanager pkg).
-   - tier: implement `ToAuthorizationTuples` (currently commented + stale: wrong id format
-     `tier:{rid}` and wrong parent project instead of service) -> `TierObject(serviceRid, tierRid)`
-     + `tier -> service` link only (lazy policy, no policy tuples at creation).
-   - delete price + userBillingAccount outboxes (tables, methods, main.go:276,281 wiring).
-   - user entitlement: `_sku:` refs in `user_entitlement.go:935,1013` via `SkuInternalObject`;
-     uuid rids via `UserEntitlementObject`.
-   - replace ALL hand-built tuple strings in `service_authorization/**` with package functions
-     (e.g. `tier.go:96,603,689,775` checks `tier:{service}/{tier}`).
-   - remove `billingstripe_stripePrice_localize` from billing/billingstripe ext authz if wired
-     (relation deleted from the model, decision 27).
-4. **earth-iam-service** (NO AGENTS.md in repo, use billing's conventions): `_role:` rename in
+3. ~~**earth-billing-service**~~ DONE (branch `chore/loeffel-io/0007`; user committed the bulk as
+   `c8680fa chore: 0007` and pushed; the review fixes + entitlement resolver landed after that commit -
+   check `git status` before continuing). Build + 8/8 tests + format green on global-generics v0.41.0.
+   THE REFERENCE IMPLEMENTATION - replicate this pattern in iam/user/email:
+   - sku grants on `_sku:` via `SkuInternalObject` + `AccountSubject("*")`; sku/tier -> service link
+     tuples on create/delete (`SkuObject`/`TierObject`/`ServiceObject`); tier `ToAuthorizationTuples`
+     implemented (link only, lazy policy; outbox wiring existed); entitlement links `relation: "_sku"`.
+   - price + userBillingAccount outboxes DELETED (12 files, mains, atlas model list, service call
+     sites, `authorizationRequest` helpers, empty builders). Price delete keeps its `Patch` call
+     (copies the db id used by repository.Delete - subtle, do not drop when replicating).
+   - uuid user rids: `UserBillingAccount.UserRid` + entitlement outbox `UserRid` -> `uuid.UUID`
+     varchar(36); filters/repos/service vars/wildcards updated (name parser maps `-` to `uuid.Nil`).
+   - service_authorization + TestIamPermissions: all object strings via package functions;
+     parent-policied resources check the ancestor (`price -> sku`, `userBillingAccount -> user`);
+     `x-mindful-email` -> `x-mindful-uid` in md.Get, envoy header AND both main.go log field maps
+     (the log maps were missed first and caught in review - check them in every service!).
+   - migrations: 4 new one-DDL goose files (uuid columns, 2 table drops); regenerate via
+     `bazel run //db:atlas_migration_sources`, then split by hand if multi-DDL and rehash with
+     `atlas migrate hash --dir "file://migrations?format=goose"` (binary under bazel external
+     rules_multitool). The atlas test rejects multi-DDL migration files.
+   - decision 29 implemented: readable `Sku.Object` + generic `EntitlementPolicyObject` at
+     write-validation and tuple-builder sites; fixtures use real b32sha256 hashes
+     (`projectEntitlementPolicy:vjojidbbu6yihfr6qrlrvn362nuwvkbs2ggiz54vxwdrn6y23zpa` for "mindful").
+4. **earth-iam-service** (NEXT UP; NO AGENTS.md in repo, use billing's conventions): `_role:` rename in
    `internal/database/model/model_v1/role.go:422-457` via `RoleInternalObject`; role -> project link
    tuples; note `role.go:425,448` writes `account:*`/`serviceAccount:*` grant tuples (keep, use
    `AccountSubject("*")`). Binding role link tuples write `relation: "_role"` (decision 7 update).
-   Seeded role rids must be the kebab-case names (decision 21).
+   Seeded role rids must be the kebab-case names (decision 21). Bump global-generics to v0.41.0
+   (go.mod + MODULE.bazel). Check main.go log field maps for `x-mindful-email` (billing lesson).
 5. **earth-user-service**: user rid -> uuid (proto v0.26.0 released, `user_id` field GONE - server
    generates the rid, decision 23); remove `group:all-authenticated-users` membership tuples
    (`user.go:530-533,566-569`); default policy/binding tuples via `UserObject`/`UserPolicyObject`/
@@ -234,8 +258,14 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + 11/
 Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel build //...`,
 `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when
 deps change. NEVER commit/push without explicit user approval. Consistency across services is the top
-priority: implement the pattern once in billing, then replicate verbatim.
-Nothing is committed yet in any repo - all changes sit uncommitted on the branches.
+priority: the billing pattern is final, replicate verbatim.
+
+Deploy/commit state (as of this handover): openfga model is DEPLOYED to the user's `loeffel-io` env,
+authorization-service rollout to that env was announced by the user. Billing has one user commit
+(`c8680fa chore: 0007`, pushed) with the review fixes + decision 29 changes UNCOMMITTED on top.
+All other repos: everything uncommitted on `chore/loeffel-io/0007`. The team works on master/staging,
+unaffected. Proto releases done: user-proto v0.26.0, user-internal v0.5.0, billing v0.5.0,
+billingstripe v0.3.0, email v0.2.0, global-generics v0.41.0.
 
 ## Hard constraints (user-imposed)
 
@@ -260,6 +290,11 @@ Nothing is committed yet in any repo - all changes sit uncommitted on the branch
   or bazel silently builds against the old tag.
 - fga cli test yamls: a test-level `tuples:` block is passed as contextual tuples to every check in
   that test - exact emulation of what the authz service does at runtime.
+- The atlas bazel test allows ONE DDL statement per migration file; the generator emits multi-DDL
+  files -> split by hand, then `atlas migrate hash --dir "file://migrations?format=goose"`.
+- Check side of parent-policied resources: TestIamPermissions and ext authz check the ANCESTOR object
+  (`price -> sku:{service}/{sku}`, `userBillingAccount -> user:{uuid}`), never a nonexistent type.
+- b32sha256("mindful") = vjojidbbu6yihfr6qrlrvn362nuwvkbs2ggiz54vxwdrn6y23zpa (test fixture hash).
 - Depth math with hashes: worst object string is `membershipInvitationBinding:` + 52 = 80 chars.
   Everything fits with huge headroom. Only unhashed resource objects at depth 3 (191 + type <= 256)
   bind the budget.
