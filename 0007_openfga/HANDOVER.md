@@ -126,6 +126,16 @@ are outdated drafts, ignore them.
     inert tuples (check never matches) - same failure mode as gcp unattached policies.
     Content-scoped skus additionally require the content service to write
     `contentEntitlementPolicy -> content` links (step 9 outbox). User adds the target rule to the matrix.
+30. **`user_user_create` is granted to `_role:customer`, NOT `user-user-admin`** (user-caught bug):
+    at signup the caller is an authenticated account whose user resource does not exist yet, so the
+    user's own binding (user-user-admin) cannot grant it - chicken-and-egg. Customer is bound to
+    `group:all-authenticated-accounts` on the project policy; the contextual tuple satisfies it.
+    Guest (wildcard) deliberately does NOT get it (anonymous cannot sign up). Tested in the
+    resourcemanager yaml (customer true via contextual tuple, guest false). Permission audit result:
+    `user_user_create` is the ONLY new permission in the whole model rework; instructorImage relations
+    existed (decision 16 was a derivation bug, grants already seeded); `category` in the project
+    unions is a pass-through; role/sku/tier/service/email are parent links; `iam_role_*`/`billing_sku_*`
+    stay deferred (challenge 3). The iam seeder is complete - nothing else to seed.
 
 ## Status: what is DONE
 
@@ -216,20 +226,35 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + tes
    - decision 29 implemented: readable `Sku.Object` + generic `EntitlementPolicyObject` at
      write-validation and tuple-builder sites; fixtures use real b32sha256 hashes
      (`projectEntitlementPolicy:vjojidbbu6yihfr6qrlrvn362nuwvkbs2ggiz54vxwdrn6y23zpa` for "mindful").
-4. **earth-iam-service** (NEXT UP; NO AGENTS.md in repo, use billing's conventions): `_role:` rename in
-   `internal/database/model/model_v1/role.go:422-457` via `RoleInternalObject`; role -> project link
-   tuples; note `role.go:425,448` writes `account:*`/`serviceAccount:*` grant tuples (keep, use
-   `AccountSubject("*")`). Binding role link tuples write `relation: "_role"` (decision 7 update).
-   Seeded role rids must be the kebab-case names (decision 21). Bump global-generics to v0.41.0
-   (go.mod + MODULE.bazel). Check main.go log field maps for `x-mindful-email` (billing lesson).
-5. **earth-user-service**: user rid -> uuid (proto v0.26.0 released, `user_id` field GONE - server
-   generates the rid, decision 23); remove `group:all-authenticated-users` membership tuples
+4. ~~**earth-iam-service**~~ DONE (branch `chore/loeffel-io/0007`; user committed the bulk as
+   `326c0b0 chore: 0007`, pushed; two review/bug fixes UNCOMMITTED on top - check `git status`).
+   Build + 8/8 tests + format green on v0.41.0:
+   - role.go builder: grants -> `_role:` via `RoleInternalObject` + `AccountSubject("*")`/
+     `ServiceAccountSubject("*")` (both wildcards kept); NEW `role -> project` link tuples on
+     create/delete via `RoleObject`/`ProjectObject`. Test fixtures updated (link + `_role:` grants).
+   - the seeder flows through the same `ToAuthorizationTuples` -> all ~40 seeded roles emit their
+     `role -> project` link + `_role:` grants automatically, no separate seeder tuple code.
+   - ext authz role.go: 6x `ProjectObject(projectRid)`; envoy header + BOTH main.go log maps -> uid/tenant.
+   - REVIEW CATCH (uncommitted): 11 seeded rids were camelCase (`billing-userBillingAccount-*`,
+     `billing-userBillingInfo-*`, `billing-userEntitlement-*`, `user-membershipInvitation-*`) and
+     VIOLATE the role proto pattern `[a-z]([a-z0-9-]{0,61}[a-z0-9])?` (Get/Update would fail
+     validation). Renamed to `billing-user-billing-account-*`, `billing-user-billing-info-*`,
+     `billing-user-entitlement-*`, `user-membership-invitation-*`. Underscore PERMISSION rids like
+     `billing_userBillingAccount_get` are correct and unchanged ({service}_{resource}_{method}).
+   - BUG FIX (uncommitted, also in openfga yamls): `user_user_create` moved from `roleUserUserAdmin`
+     to `roleCustomer` - decision 30.
+5. **earth-user-service** (NEXT UP): user rid -> uuid (proto v0.26.0 released, `user_id` field GONE -
+   server generates the rid, decision 23); remove `group:all-authenticated-users` membership tuples
    (`user.go:530-533,566-569`); default policy/binding tuples via `UserObject`/`UserPolicyObject`/
    `UserBindingObject`/`AccountSubject` with uid instead of email (`user.go:531,541,546,548,551,567...`,
    also `internal/service/user/user_v1/user.go:1906` policy member string); binding role link tuples
    write `relation: "_role"` with rid `user-user-admin` (decisions 7+21);
    membership files keep working but b2b is disabled (email tuples in `membership.go:327...`,
    `membership_invitation.go:368,406` stay untouched or get the uuid treatment if cheap).
+   ALSO: `membership_invitation.go:362-375` references `role:user-membershipInvitation-user` /
+   `membershipInvitationBinding:...` strings - rename to `user-membership-invitation-user` to match
+   the renamed iam seeder rid (disabled b2b code, but keep consistent). Bump global-generics to
+   v0.41.0 (both pins), check main.go log field maps (billing lesson).
 6. **earth-resourcemanager-service**: group rid renames (decision 11); projectPolicy/Binding hashing
    via package functions (`project_policy.go` writes `projectBinding:{roleRid}` today -> becomes
    `ProjectBindingObject(projectRid, roleRid)` hashed; verify against model, projectPolicy id today is
@@ -260,12 +285,15 @@ Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel
 deps change. NEVER commit/push without explicit user approval. Consistency across services is the top
 priority: the billing pattern is final, replicate verbatim.
 
-Deploy/commit state (as of this handover): openfga model is DEPLOYED to the user's `loeffel-io` env,
+Deploy/commit state (as of this handover): openfga model is DEPLOYED to the user's `loeffel-io` env
+(BUT the decision 30 yaml/grant move came after - redeploy/reseed needed for signup to work there),
 authorization-service rollout to that env was announced by the user. Billing has one user commit
 (`c8680fa chore: 0007`, pushed) with the review fixes + decision 29 changes UNCOMMITTED on top.
-All other repos: everything uncommitted on `chore/loeffel-io/0007`. The team works on master/staging,
-unaffected. Proto releases done: user-proto v0.26.0, user-internal v0.5.0, billing v0.5.0,
-billingstripe v0.3.0, email v0.2.0, global-generics v0.41.0.
+iam has one user commit (`326c0b0 chore: 0007`, pushed) with the kebab-case rid renames + decision 30
+seeder move UNCOMMITTED on top. openfga-service has the decision 30 yaml move UNCOMMITTED on top of
+its committed state. All other repos: everything uncommitted on `chore/loeffel-io/0007`. The team
+works on master/staging, unaffected. Proto releases done: user-proto v0.26.0, user-internal v0.5.0,
+billing v0.5.0, billingstripe v0.3.0, email v0.2.0, global-generics v0.41.0.
 
 ## Hard constraints (user-imposed)
 

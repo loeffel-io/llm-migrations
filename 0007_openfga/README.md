@@ -84,6 +84,7 @@ Exceptions and rules:
 
 - Every resource with an openfga type always writes its resource -> parent link tuple at creation, pointing to the direct AIP parent, never skipping levels (e.g. `tier -> service -> project`).
 - End-user-owned resources with their own policy chain (`user`) must write their default policy + binding + account tuples at creation, otherwise the owner is locked out. `userEntitlement` writes its sku/account tuples at creation.
+- `user_user_create` is granted to the `customer` role (bound to `group:all-authenticated-accounts`, satisfied by the contextual tuple), NOT to `user-user-admin`: at signup the user resource does not exist yet, so its own binding cannot grant the create. Anonymous (`guest`) does not get it.
 - `userBillingAccount`, `userBillingInfo`, `profile` need nothing: they are parent-policied via the `user` type.
 - b2b (`organization`, `membership`, `membershipInvitation`) is disabled and will not go live.
 - groups: post-go-live, design TBD (self-leave via group relation vs. full membership chain like organization). the two well-known groups `all-accounts` (wildcard, seeded) and `all-authenticated-accounts` (contextual, see challenge 1) exist at go live.
