@@ -151,6 +151,28 @@ are outdated drafts, ignore them.
     only third-party import correctly keep std + uuid as two groups.
 34. **User rid history**: old seeded names like `users/lucas` worked because rid == firebase uid.
     Now rid is uuid, the uid lives in `AccountRid`. The user's real uid is literally `lucas`.
+35. **Team firebase uids = email local parts**: lucas, noah, lukas, robin (resourcemanager policy
+    seeder bindings). User confirmed the pattern.
+36. **`google.iam.v1.Policy` member/role forms** (user challenged, resolved): members are PREFIXED
+    PRINCIPAL IDS (`account:{accountRid}`, `serviceAccount:{serviceAccountRid}`, `group:{rid}`),
+    NEVER resource names - gcp convention, 1:1 tuple subject mapping, no cross-project ambiguity.
+    The binding ROLE is a RESOURCE NAME (`projects/{p}/roles/{r}`) - also gcp convention (references
+    to resources are names, identities of principals are prefixed ids). Do not "clean up" either
+    direction. resourcemanager-proto SetIamPolicy doc fixed to `{accountRid}`/`{serviceAccountRid}`
+    (branch `chore/loeffel-io/0007`, uncommitted, comment-only, user releases eventually).
+37. **service -> project links live in the mindful PROJECT SEEDER** (final, after two iterations):
+    `serviceRids := []string{"content"}` in the seeder fixture, links appended to the tuple writes
+    after the (empty but intentional) `ProjectPatchResult.ToAuthorizationTuples` call, through the
+    project outbox. NOT in the model builder (hidden global in a diff function, update anomaly),
+    NOT a dedicated ServiceSeeder (built, then deleted): services will belong to future
+    servicemanagement/serviceusage services like gcp, NOT resourcemanager - no takeover migration
+    justifies a dedicated seeder. The empty project `ToAuthorizationTuples` STAYS (future customer
+    CreateProject/DeleteProject tuples). ProjectBatchWriteTuplesOutbox stays (transport for these
+    links + future project tuples). Only `content` is a real service rid at go live.
+38. **serviceAccount policy members**: resourcemanager FromProto/tuple writer has NO serviceAccount
+    member support (only account/group/wildcards). Deliberately deferred with decision 2 ("after
+    release"). The model/yaml `serviceAccount:earth-billing` editor binding has no production writer
+    yet - revisit in auth seeder (step 8) if services need their binding at go live.
 
 ## Status: what is DONE
 
@@ -278,14 +300,27 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
    - migrations: 4 one-DDL files (3 outbox rid columns uuid, users rid+account_rid+index).
      org outbox rid stayed STRING (human org rid, not uuid) - do not convert.
    - seeder: `Rid: uuid.MustParse(...)`, `AccountRid: "lucas"` (the user's REAL firebase uid = lucas).
-6. **earth-resourcemanager-service** (NEXT UP): group rid renames (decision 11); projectPolicy/Binding
-   hashing via package functions (`project_policy.go` writes `projectBinding:{roleRid}` today ->
-   becomes `ProjectBindingObject(projectRid, roleRid)` hashed; verify against model, projectPolicy id
-   today is `projectPolicy:mindful`); service seeder or outbox for `service -> project` links
-   (decision 9). Bump global-generics (v0.42.0), uid headers + BOTH log maps, envoy header,
-   check for the account/uid duplicate param (decision 32), import placement (decision 33).
-7. **earth-storage-service**: object id hashing via `ObjectObject` (model comment `objectPolicy:1313`
-   already says "rid sha256sum" - verify what the code actually writes today); ext authz object strings.
+6. ~~**earth-resourcemanager-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted on top of
+   user commits - check `git status`). Build + 6/6 tests + format green on v0.42.0:
+   - project_policy.go builder: hashed `ProjectPolicyObject`/`ProjectBindingObject(projectRid, roleRid)`
+     (old code wrote UNHASHED `projectBinding:{roleRid}` - would never match the model); group renames
+     (`all-accounts`, `all-authenticated-accounts` - the old TODOs); `_role:` grants + `relation: "_role"`;
+     members via `AccountSubject(GetAccountRid())`. Update-path group toggle logic verified intact.
+   - `AccountEmail` -> `AccountRid` rename (model column `account_rid` varchar 128, unique index,
+     masks, filters, service, seeder, tests). Single-DDL migration + atlas rehash.
+   - policy seeder binds uids lucas/noah/lukas/robin (decision 35).
+   - service -> project links per decision 37 (project seeder, serviceRids list).
+   - headers/log maps/envoy -> uid+tenant; ext authz + TestIamPermissions via `ProjectObject`.
+   - test fixtures use real b32sha256 hashes.
+   ALSO fixed during this step (billing catch-up): `earth-billing-service/internal/seeder/billing/
+   billing_v1/billing.go` wrote UNHASHED `projectEntitlementPolicy:mindful` -> now
+   `ProjectEntitlementPolicyObject("mindful")`. Lesson: `internal/seeder/` exists BESIDES
+   `internal/database/seeder/` in some repos - scan BOTH for tuple strings.
+7. **earth-storage-service** (NEXT UP): object id hashing via `ObjectObject` (model comment
+   `objectPolicy:1313` already says "rid sha256sum" - verify what the code actually writes today);
+   ext authz object strings. Usual checklist: v0.42.0 both pins, uid headers + BOTH log maps + envoy,
+   decision 32 (no uid dup param), decision 33 (import placement), scan `internal/seeder/` AND
+   `internal/database/seeder/`.
 8. **earth-auth-service**: seeder rename `group:all-users` -> `all-accounts` + `AccountSubject`;
    uid instead of email everywhere; serviceAccount rid as jwt claim (needed for decision 2).
 9. **earth-content-service**: remove non-existing-type object entries from service_authorization
@@ -314,10 +349,12 @@ Deploy/commit state (as of this handover): openfga model + authorization-service
 user's `loeffel-io` env (decision 30 yaml/grant move came after the model deploy - redeploy/reseed
 needed there for signup). User-service rollout to that env is imminent ("ready to go with user").
 Commit state per repo (user commits chore-style and pushes periodically; ALWAYS check `git status`
-for uncommitted work on top): billing `c8680fa` + review fixes/decision 29 uncommitted; iam `326c0b0`
-+ rid renames/decision 30 uncommitted; user `a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid
-uncommitted; openfga-service decision 30 yaml move uncommitted; global-generics v0.42.0 released
-from `chore/loeffel-io/0007-me`. The team works on master/staging, unaffected. Releases done:
+for uncommitted work on top): billing `c8680fa` + review fixes/decision 29/uid-param/seeder-hash
+uncommitted; iam `326c0b0` + rid renames/decision 30/uid-param uncommitted; user
+`a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid/AccountRid-renames uncommitted; resourcemanager
+everything uncommitted (step 6 complete); resourcemanager-proto member doc fix uncommitted;
+openfga-service decision 30 yaml move uncommitted; global-generics v0.42.0 released from
+`chore/loeffel-io/0007-me`. The team works on master/staging, unaffected. Releases done:
 user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe
 v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
 

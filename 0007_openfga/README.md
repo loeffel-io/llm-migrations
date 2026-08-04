@@ -83,6 +83,8 @@ Policies/bindings are created lazily on `SetIamPolicy` (full chain in one BatchW
 Exceptions and rules:
 
 - Every resource with an openfga type always writes its resource -> parent link tuple at creation, pointing to the direct AIP parent, never skipping levels (e.g. `tier -> service -> project`).
+- `service -> project` links are seeded in the resourcemanager mindful project seeder (`serviceRids` list, currently only `content`) until dedicated servicemanagement/serviceusage services exist (gcp-style; services will NOT be a resourcemanager resource).
+- `google.iam.v1.Policy` forms: binding role = resource name (`projects/{p}/roles/{r}`), members = prefixed principal ids (`account:{accountRid}`, `serviceAccount:{serviceAccountRid}`, `group:{rid}`) - gcp convention, never resource names for members.
 - End-user-owned resources with their own policy chain (`user`) must write their default policy + binding + account tuples at creation, otherwise the owner is locked out. `userEntitlement` writes its sku/account tuples at creation.
 - `user_user_create` is granted to the `customer` role (bound to `group:all-authenticated-accounts`, satisfied by the contextual tuple), NOT to `user-user-admin`: at signup the user resource does not exist yet, so its own binding cannot grant the create. Anonymous (`guest`) does not get it.
 - `userBillingAccount`, `userBillingInfo`, `profile` need nothing: they are parent-policied via the `user` type.
