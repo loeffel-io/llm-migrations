@@ -179,4 +179,6 @@ so write side and check side can never diverge and the hashing stays invisible a
 
 ## Conclusion
 
+Status: all four challenges are implemented across all services (see HANDOVER.md for the per-repo state). The only remaining step is the istio-side removal of the x-mindful-email header extraction (user-owned).
+
 Lets start building with all the informations you have. btw: do not publish any protos yourself - change the code if needed but do not link to the new version. let me know if i need to do this for you and release a new version.

@@ -360,11 +360,32 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
    - decision 2 jwt claim: NOTHING to do in auth-service (see decision 39 - claim ships with the
      customer SA feature after release). No serviceAccount token flow exists.
    - usual: v0.42.0 pins, log map, ext authz `ProjectObject`.
-9. **earth-content-service**: remove non-existing-type object entries from service_authorization
-   (decision 17); tuple strings via package functions; contentPolicy outbox is commented out in
-   `cmd/earth_content_service/main.go:355` - clarify with user whether to enable.
-10. **earth-email-service**: NEW email type tuples: email -> project link at creation (needs a first
-    tuple outbox in this service, copy the billing pattern).
+9. ~~**earth-content-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted, ~51 files).
+   Build + 6/6 tests + format green on v0.42.0:
+   - decision 17 COMPLETE: dead-type objects removed from ext authz AND TestIamPermissions (TIPs now
+     check the nearest policied ancestor via package fns; parent rids re-wired in the parse calls).
+   - all four builders (content/tag/category/instructor) LAZY-CORRECTED: create writes only the
+     parent link; the old eager `xPolicy -> x` link at creation REMOVED (contradicted JA: LAZY).
+     Delete still removes the possibly-existing policy link (missing-delete IGNOREd).
+   - content create/delete writes `contentEntitlementPolicy -> content` (instant - decision 29
+     dependency: content-scoped skus now work at go live).
+   - contentPolicy outbox STAYS COMMENTED (user decision - no producer until SetIamPolicy ships).
+   - KNOWN GAP (user accepted): content has NO ToAuthorizationTuples unit tests (pre-existing;
+     unlike all other services). Model-side covered by openfga yaml tests.
+10. ~~**earth-email-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted). Build + 5/5
+    tests + format green. FIRST tuple outbox in this repo, billing tier pattern ported verbatim
+    (model/mask/preload/repo/worker, minus ServiceRid; preload GROUP BY adjusted):
+    - `Email.ToAuthorizationTuples(dst, src)` -> `email -> project` link only (lazy).
+    - service create/delete wired in-tx + `authorizationRequest` helper (billing style).
+    - main.go: NEW `EARTH_AUTHORIZATION_SERVICE_ADDR` env + grpc client + outbox in both worker
+      lists; atlas model registered; single-DDL create migration + rehash.
+    - DEPLOY NOTE: the email deployment needs the new env var (deployments/ is user-owned).
+11.5. **billingstripe/emailmailgun/language** DONE (branches `chore/loeffel-io/0007`, uncommitted) -
+    not explicit work-order steps but carried email headers. All three: uid headers + log maps +
+    envoy + decision 32 + v0.42.0. billingstripe additionally: `SkuObject`/`ServiceObject`/
+    `UserObject` in ext authz (batch composite-key maps like billing), uuid user rid decls,
+    webhook authz keeps its extra `stripeSignature` param (after `account`).
+    `stripePrice_localize` was NOT wired anywhere (only `_resolve`) - nothing to remove.
 11. ~~**Proto regexes**~~ DONE + RELEASED: user rid + membership rid -> uuid pattern, org billingInfo
     inconsistency fixed, `CreateUserRequest.user_id` removed (decision 23). Released as:
     user-proto v0.26.0, user-internal-proto v0.5.0, billing-proto v0.5.0, billingstripe-proto v0.3.0,
@@ -373,9 +394,10 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
     `write_source_files` targets (`bazel query 'kind(_write_source_file, //...)'`) after proto edits.
     Known env issue: email-proto `//deployments/production/npm` type-check fails with 403 (npm
     registry auth expired), unrelated to changes - proto tests all pass.
-12. **Ext authz header cleanup** (istio config, user-owned): remove the `x-mindful-email` claim
-    header from istio RequestAuthentication. The authz service already reads `x-mindful-uid`
-    (decision 19), so this is pure removal, not a rename.
+12. **Ext authz header cleanup** (istio config, user-owned; THE ONLY REMAINING STEP): remove the
+    `x-mindful-email` claim-to-header extraction from the istio RequestAuthentication/ext-authz
+    config. ALL services now read only `x-mindful-uid`/`x-mindful-tenant` - the removal makes the
+    mesh fully email-free. Pure removal, no rename, no service changes needed.
 
 Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel build //...`,
 `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when
@@ -386,15 +408,16 @@ Deploy/commit state (as of this handover): openfga model + authorization-service
 user's `loeffel-io` env (decision 30 yaml/grant move came after the model deploy - redeploy/reseed
 needed there for signup). User-service rollout to that env is imminent ("ready to go with user").
 Commit state per repo (user commits chore-style and pushes periodically; ALWAYS check `git status`
-for uncommitted work on top): billing `c8680fa` + review fixes/decision 29/uid-param/seeder-hash
-uncommitted; iam `326c0b0` + rid renames/decision 30/uid-param uncommitted; user
-`a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid/AccountRid-renames uncommitted; resourcemanager
-everything uncommitted (step 6 complete); storage everything uncommitted (step 7 complete);
-auth everything uncommitted (step 8 complete); resourcemanager-proto member doc fix uncommitted;
-openfga-service decision 30 yaml move + ci-deployer rename uncommitted; global-generics v0.42.0
-released, `chore/loeffel-io/0007-me` has the ci-deployer example comment uncommitted (next release). The team works on master/staging,
-unaffected. Releases done: user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0,
-billing v0.5.0, billingstripe v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
+for uncommitted work on top of any listed commit): ALL 13 earth service repos + openfga-service +
+resourcemanager-proto now have work on `chore/loeffel-io/0007` branches (billingstripe/emailmailgun/
+language included as of the final sweep). global-generics: v0.42.0 released; branch
+`chore/loeffel-io/0007-me` additionally has the ci-deployer example comment uncommitted (next
+release). The team works on master/staging, unaffected. Releases done: user-proto v0.26.0 + v0.27.0
+(me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe v0.3.0, email v0.2.0,
+global-generics v0.40.0/v0.41.0/v0.42.0. ALL WORK-ORDER STEPS 0-11 ARE DONE - only step 12
+(istio email header removal, user-owned) remains. Deploy notes: email service needs
+`EARTH_AUTHORIZATION_SERVICE_ADDR`; the `loeffel-io` env needs model redeploy + reseed
+(decision 30 grant move came after the first deploy).
 
 ## Hard constraints (user-imposed)
 
