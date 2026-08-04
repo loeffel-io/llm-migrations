@@ -316,13 +316,32 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
    billing_v1/billing.go` wrote UNHASHED `projectEntitlementPolicy:mindful` -> now
    `ProjectEntitlementPolicyObject("mindful")`. Lesson: `internal/seeder/` exists BESIDES
    `internal/database/seeder/` in some repos - scan BOTH for tuple strings.
-7. **earth-storage-service** (NEXT UP): object id hashing via `ObjectObject` (model comment
-   `objectPolicy:1313` already says "rid sha256sum" - verify what the code actually writes today);
-   ext authz object strings. Usual checklist: v0.42.0 both pins, uid headers + BOTH log maps + envoy,
-   decision 32 (no uid dup param), decision 33 (import placement), scan `internal/seeder/` AND
-   `internal/database/seeder/`.
-8. **earth-auth-service**: seeder rename `group:all-users` -> `all-accounts` + `AccountSubject`;
-   uid instead of email everywhere; serviceAccount rid as jwt claim (needed for decision 2).
+7. ~~**earth-storage-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted, 21 files).
+   Build + 7/7 tests + format green on v0.42.0:
+   - object ids: old code wrote HEX sha256 (`%x`), global-generics uses lowercase-b32 - a real format
+     break, old ids never match. All sites -> `ObjectObject(rid)` (object builder, service
+     TestIamPermissions, ~8 ext authz sites; hex-sum boilerplate deleted).
+   - object_policy builder: `ObjectPolicyObject`/`ObjectBindingObject(rid, roleRid)` (old binding id
+     was `{hexsum}/{roleRid}` - also broken), group renames, `_role:` grants + `relation: "_role"`,
+     `AccountSubject(GetAccountRid())`; update-path multiline binding sites too.
+   - AccountEmail -> AccountRid (same recipe as resourcemanager), single-DDL migration + rehash.
+   - decision 32: storage envoy HAD the uid double-read (removed); its service_authorization
+     interfaces never carried the param.
+   - user-events consumer: user rid -> uuid.UUID, profile image path via `.String()`.
+   - fixtures: b32 hashes, `_role`, renamed groups, account rids (5-entry list incl. hannes -
+     do NOT shrink fixture lists, tests index up to [4]), Policy etag hashes recomputed from test
+     output (etag = sha256 over proto bytes -> changes whenever member strings change).
+   - storage seeder was already clean (`public/` + `storage-object-viewer` + AllAccounts wildcard).
+   - migration naming rule: `change_X_to_Y_in_T` = type change (column keeps its name),
+     `rename_A_to_B_in_T` = column identifier changed. Both exist deliberately (user verified).
+8. **earth-auth-service** (NEXT UP): seeder rename `group:all-users` -> `all-accounts` +
+   `AccountSubject` (seeder at `internal/seeder/account/account_v1/account.go:41` - note it is
+   `internal/seeder/`, not `internal/database/seeder/`); uid instead of email everywhere;
+   serviceAccount rid as jwt claim (needed for decision 2). ALSO decide decision 38 here: does any
+   production writer need to create the `serviceAccount:earth-billing` editor projectBinding tuples
+   at go live (model/yamls expect them, nothing writes them)? Ask the user. Usual checklist:
+   v0.42.0 both pins, uid headers + BOTH log maps + envoy, decision 32, decision 33,
+   scan both seeder dirs.
 9. **earth-content-service**: remove non-existing-type object entries from service_authorization
    (decision 17); tuple strings via package functions; contentPolicy outbox is commented out in
    `cmd/earth_content_service/main.go:355` - clarify with user whether to enable.
@@ -352,11 +371,11 @@ Commit state per repo (user commits chore-style and pushes periodically; ALWAYS 
 for uncommitted work on top): billing `c8680fa` + review fixes/decision 29/uid-param/seeder-hash
 uncommitted; iam `326c0b0` + rid renames/decision 30/uid-param uncommitted; user
 `a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid/AccountRid-renames uncommitted; resourcemanager
-everything uncommitted (step 6 complete); resourcemanager-proto member doc fix uncommitted;
-openfga-service decision 30 yaml move uncommitted; global-generics v0.42.0 released from
-`chore/loeffel-io/0007-me`. The team works on master/staging, unaffected. Releases done:
-user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe
-v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
+everything uncommitted (step 6 complete); storage everything uncommitted (step 7 complete);
+resourcemanager-proto member doc fix uncommitted; openfga-service decision 30 yaml move uncommitted;
+global-generics v0.42.0 released from `chore/loeffel-io/0007-me`. The team works on master/staging,
+unaffected. Releases done: user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0,
+billing v0.5.0, billingstripe v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
 
 ## Hard constraints (user-imposed)
 
