@@ -57,7 +57,7 @@ we switch to the firebase uid because its only used for the check. more at solut
 - the `x-mindful-email` ext authz header is dead: the authz service reads the account from the existing `x-mindful-uid` header, no email in headers/logs. istio-side removal of the email header is a separate user-owned step.
 - membership invitations are keyed by email and would write `account:{email}` tuples.
   b2b is disabled for go live, so this is out of scope for now. before b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
-- service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4).
+- service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4). Important: `serviceAccount:` in openfga means future CUSTOMER service accounts (api clients, ci - like gcp's iam service accounts, owned by an account via the `account` relation). Platform service-to-service communication uses istio mTLS principals matched in ext authz BEFORE openfga - never openfga subjects. Example rid is `ci-deployer`, deliberately not an earth service name.
 - content collections are disabled for go live, so this is out of scope for now.
 
 ### challenge 2

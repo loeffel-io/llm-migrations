@@ -173,6 +173,19 @@ are outdated drafts, ignore them.
     member support (only account/group/wildcards). Deliberately deferred with decision 2 ("after
     release"). The model/yaml `serviceAccount:earth-billing` editor binding has no production writer
     yet - revisit in auth seeder (step 8) if services need their binding at go live.
+    RESOLVED by decision 39: nothing to seed, binding example was misleadingly named.
+39. **Two separate identity worlds** (user clarification, do not conflate):
+    (a) PLATFORM identities = earth services talking to each other: istio mTLS principals
+    (gcp service accounts like `*-billing-*@...iam.gserviceaccount.com`), matched in ext authz
+    BEFORE any openfga check. Never subjects in openfga.
+    (b) `serviceAccount:{rid}` in openfga/iam = future CUSTOMER service accounts (api clients, ci,
+    customer backends) - like `iam.googleapis.com/ServiceAccount`. Auth via jwt with the
+    serviceAccount-rid claim (decision 2's claim belongs to THIS feature, ships with the customer
+    SA feature after release - nothing to do in auth-service today). The model's
+    `serviceAccount.account` relation = customer account owns/manages its SAs, like gcp.
+    Fixture rid renamed `earth-billing` -> `ci-deployer` (openfga yamls + model comment +
+    global-generics ServiceAccountSubject example on branch `chore/loeffel-io/0007-me`, needs
+    next release) so nobody mistakes it for a platform identity again.
 
 ## Status: what is DONE
 
@@ -334,14 +347,19 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
    - storage seeder was already clean (`public/` + `storage-object-viewer` + AllAccounts wildcard).
    - migration naming rule: `change_X_to_Y_in_T` = type change (column keeps its name),
      `rename_A_to_B_in_T` = column identifier changed. Both exist deliberately (user verified).
-8. **earth-auth-service** (NEXT UP): seeder rename `group:all-users` -> `all-accounts` +
-   `AccountSubject` (seeder at `internal/seeder/account/account_v1/account.go:41` - note it is
-   `internal/seeder/`, not `internal/database/seeder/`); uid instead of email everywhere;
-   serviceAccount rid as jwt claim (needed for decision 2). ALSO decide decision 38 here: does any
-   production writer need to create the `serviceAccount:earth-billing` editor projectBinding tuples
-   at go live (model/yamls expect them, nothing writes them)? Ask the user. Usual checklist:
-   v0.42.0 both pins, uid headers + BOTH log maps + envoy, decision 32, decision 33,
-   scan both seeder dirs.
+8. ~~**earth-auth-service**~~ DONE (branch `chore/loeffel-io/0007`, uncommitted). Build + 4/4 tests +
+   format green on v0.42.0:
+   - seeder (`internal/seeder/`!): wildcard tuple via `AccountSubject("*")` ->
+     `GroupObject("all-accounts")` (decision 11 complete). Firebase user fixture keeps uid `lucas` +
+     email - the email lives IN firebase (auth provider data), only tuples/headers are email-free.
+   - BUG FIX (decision 25 class): user-events consumer passed the user rid as firebase uid to
+     UpdateUser/DeleteUser - broken since rid became uuid. Now fetches `User.account`
+     (ACCOUNT read mask), parses the account rid, uses it for all 4 firebase call sites.
+   - decision 32: auth had `account, tenant, uid` params with a real `accountRid == uid` self-access
+     check -> `accountRid == account` (same header). Interface + impl + envoy call sites collapsed.
+   - decision 2 jwt claim: NOTHING to do in auth-service (see decision 39 - claim ships with the
+     customer SA feature after release). No serviceAccount token flow exists.
+   - usual: v0.42.0 pins, log map, ext authz `ProjectObject`.
 9. **earth-content-service**: remove non-existing-type object entries from service_authorization
    (decision 17); tuple strings via package functions; contentPolicy outbox is commented out in
    `cmd/earth_content_service/main.go:355` - clarify with user whether to enable.
@@ -372,8 +390,9 @@ for uncommitted work on top): billing `c8680fa` + review fixes/decision 29/uid-p
 uncommitted; iam `326c0b0` + rid renames/decision 30/uid-param uncommitted; user
 `a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid/AccountRid-renames uncommitted; resourcemanager
 everything uncommitted (step 6 complete); storage everything uncommitted (step 7 complete);
-resourcemanager-proto member doc fix uncommitted; openfga-service decision 30 yaml move uncommitted;
-global-generics v0.42.0 released from `chore/loeffel-io/0007-me`. The team works on master/staging,
+auth everything uncommitted (step 8 complete); resourcemanager-proto member doc fix uncommitted;
+openfga-service decision 30 yaml move + ci-deployer rename uncommitted; global-generics v0.42.0
+released, `chore/loeffel-io/0007-me` has the ci-deployer example comment uncommitted (next release). The team works on master/staging,
 unaffected. Releases done: user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0,
 billing v0.5.0, billingstripe v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
 
