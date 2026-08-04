@@ -136,15 +136,30 @@ are outdated drafts, ignore them.
     existed (decision 16 was a derivation bug, grants already seeded); `category` in the project
     unions is a pass-through; role/sku/tier/service/email are parent links; `iam_role_*`/`billing_sku_*`
     stay deferred (challenge 3). The iam seeder is complete - nothing else to seed.
+31. **`users/me` alias via `ParseUserMeName`** (global-generics v0.42.0, pattern
+    `projects/{project}/users/me`): NOT merged into `ParseUserName` (uuid.Nil would collide with the
+    `-` wildcard sentinel, and all ~15 call sites would silently accept `me` - DeleteUser etc. must
+    reject it). NOT named `ParseUserAliasName` (email aliases are forbidden forever - PII in
+    urls/logs; a generic alias parser weakens validation; future aliases are additive:
+    `ParseUserXName` + proto pattern + one call site). Only GetUser accepts `me`
+    (proto v0.27.0 pattern `(uuid|me)`); service resolves via account column + verified header.
+32. **service_authorization interfaces carry ONE `account string` param** (the uid). The old
+    duplicate `uid string` param (same header read twice) was removed in authz/billing/iam/user -
+    do not reintroduce it in the remaining services; check for it during migration.
+33. **Import placement**: new imports go INTO the existing group, sorted (std group separate).
+    23 files had misplaced solo `uuid` groups from batch edits - fixed. Files where uuid is the
+    only third-party import correctly keep std + uuid as two groups.
+34. **User rid history**: old seeded names like `users/lucas` worked because rid == firebase uid.
+    Now rid is uuid, the uid lives in `AccountRid`. The user's real uid is literally `lucas`.
 
 ## Status: what is DONE
 
-### global-generics (RELEASED as v0.41.0)
+### global-generics (RELEASED as v0.42.0)
 
 Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + tests + vet + fmt green.
-**v0.40.0** = tuple object functions; **v0.41.0** (branch `chore/loeffel-io/0007`) adds the generic
-`EntitlementPolicyObject(object string)` in `pkg/grpc/resource/mindful/earth/authorization/model/model_v1`
-(decision 29, table-driven test included). Services should pin v0.41.0.
+**v0.40.0** = tuple object functions; **v0.41.0** = generic `EntitlementPolicyObject` (decision 29);
+**v0.42.0** (branch `chore/loeffel-io/0007-me`) = `ParseUserMeName` (decision 31). Services pin the
+highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lift opportunistically).
 
 - `internal/grpc/tuple/tuple_v1/tuple.go`: `Hash(parts ...string) string` =
   lowercase(`base32.StdEncoding.WithPadding(NoPadding)` of sha256(strings.Join(parts, "/"))), 52 chars.
@@ -243,22 +258,32 @@ Repo: `/Users/loeffel/go/src/github.com/mindful-hq/global-generics`. Build + tes
      `billing_userBillingAccount_get` are correct and unchanged ({service}_{resource}_{method}).
    - BUG FIX (uncommitted, also in openfga yamls): `user_user_create` moved from `roleUserUserAdmin`
      to `roleCustomer` - decision 30.
-5. **earth-user-service** (NEXT UP): user rid -> uuid (proto v0.26.0 released, `user_id` field GONE -
-   server generates the rid, decision 23); remove `group:all-authenticated-users` membership tuples
-   (`user.go:530-533,566-569`); default policy/binding tuples via `UserObject`/`UserPolicyObject`/
-   `UserBindingObject`/`AccountSubject` with uid instead of email (`user.go:531,541,546,548,551,567...`,
-   also `internal/service/user/user_v1/user.go:1906` policy member string); binding role link tuples
-   write `relation: "_role"` with rid `user-user-admin` (decisions 7+21);
-   membership files keep working but b2b is disabled (email tuples in `membership.go:327...`,
-   `membership_invitation.go:368,406` stay untouched or get the uuid treatment if cheap).
-   ALSO: `membership_invitation.go:362-375` references `role:user-membershipInvitation-user` /
-   `membershipInvitationBinding:...` strings - rename to `user-membership-invitation-user` to match
-   the renamed iam seeder rid (disabled b2b code, but keep consistent). Bump global-generics to
-   v0.41.0 (both pins), check main.go log field maps (billing lesson).
-6. **earth-resourcemanager-service**: group rid renames (decision 11); projectPolicy/Binding hashing
-   via package functions (`project_policy.go` writes `projectBinding:{roleRid}` today -> becomes
-   `ProjectBindingObject(projectRid, roleRid)` hashed; verify against model, projectPolicy id today is
-   `projectPolicy:mindful`); service seeder or outbox for `service -> project` links (decision 9).
+5. ~~**earth-user-service**~~ DONE (branch `chore/loeffel-io/0007`; user committed as `a229d9c5`+`0dcf8f49`,
+   pushed; final me-refactor + seeder uid fix UNCOMMITTED on top - check `git status`).
+   Build + 6/6 tests + format green on global-generics v0.42.0 + user-proto v0.27.0. Biggest step (~52 files):
+   - `User.Rid` firebase-uid -> server `uuid.New()` (varchar 36); NEW column `AccountRid` (uid,
+     varchar 128, unique `idx_project_rid_account_rid`). Naming convention: `AccountRid`/`accountRid`
+     everywhere (user correction - Rid suffix for external ids). `UserFieldMaskUid` renamed to
+     `UserFieldMaskAccountRid` (path `users.account_rid`). `userProto.Account` maps from AccountRid.
+   - CreateUser: account from verified `x-mindful-uid` header, rejected if empty; ext authz checks
+     `project:` + `user_user_create` (decision 30); old uid==user_id self-registration bypass REMOVED.
+   - `users/me`: decision 31. Service tries `ParseUserMeName` first (account-column lookup via new
+     `InternalUserAccountFilter`), falls back to `ParseUserName`; ext authz mirrors it (authenticated +
+     tenant-prefix check; safe because service resolves ONLY via verified header). Profile has NO me
+     alias (proto requires uuid; clients resolve users/me first) - flagged to user, accepted.
+   - tuple chain via package fns (`_role` relation, hashed userPolicy/userBinding); stored
+     `all-authenticated-users` memberships REMOVED; GetIamPolicy member = `account:{uid}`.
+   - b2b (disabled): uuid compile treatment, `GetAccountRid()` subjects, invitation email tuples
+     untouched (decision 13), `user-membership-invitation-user` rename applied incl. tests.
+   - migrations: 4 one-DDL files (3 outbox rid columns uuid, users rid+account_rid+index).
+     org outbox rid stayed STRING (human org rid, not uuid) - do not convert.
+   - seeder: `Rid: uuid.MustParse(...)`, `AccountRid: "lucas"` (the user's REAL firebase uid = lucas).
+6. **earth-resourcemanager-service** (NEXT UP): group rid renames (decision 11); projectPolicy/Binding
+   hashing via package functions (`project_policy.go` writes `projectBinding:{roleRid}` today ->
+   becomes `ProjectBindingObject(projectRid, roleRid)` hashed; verify against model, projectPolicy id
+   today is `projectPolicy:mindful`); service seeder or outbox for `service -> project` links
+   (decision 9). Bump global-generics (v0.42.0), uid headers + BOTH log maps, envoy header,
+   check for the account/uid duplicate param (decision 32), import placement (decision 33).
 7. **earth-storage-service**: object id hashing via `ObjectObject` (model comment `objectPolicy:1313`
    already says "rid sha256sum" - verify what the code actually writes today); ext authz object strings.
 8. **earth-auth-service**: seeder rename `group:all-users` -> `all-accounts` + `AccountSubject`;
@@ -285,15 +310,16 @@ Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel
 deps change. NEVER commit/push without explicit user approval. Consistency across services is the top
 priority: the billing pattern is final, replicate verbatim.
 
-Deploy/commit state (as of this handover): openfga model is DEPLOYED to the user's `loeffel-io` env
-(BUT the decision 30 yaml/grant move came after - redeploy/reseed needed for signup to work there),
-authorization-service rollout to that env was announced by the user. Billing has one user commit
-(`c8680fa chore: 0007`, pushed) with the review fixes + decision 29 changes UNCOMMITTED on top.
-iam has one user commit (`326c0b0 chore: 0007`, pushed) with the kebab-case rid renames + decision 30
-seeder move UNCOMMITTED on top. openfga-service has the decision 30 yaml move UNCOMMITTED on top of
-its committed state. All other repos: everything uncommitted on `chore/loeffel-io/0007`. The team
-works on master/staging, unaffected. Proto releases done: user-proto v0.26.0, user-internal v0.5.0,
-billing v0.5.0, billingstripe v0.3.0, email v0.2.0, global-generics v0.41.0.
+Deploy/commit state (as of this handover): openfga model + authorization-service are DEPLOYED to the
+user's `loeffel-io` env (decision 30 yaml/grant move came after the model deploy - redeploy/reseed
+needed there for signup). User-service rollout to that env is imminent ("ready to go with user").
+Commit state per repo (user commits chore-style and pushes periodically; ALWAYS check `git status`
+for uncommitted work on top): billing `c8680fa` + review fixes/decision 29 uncommitted; iam `326c0b0`
++ rid renames/decision 30 uncommitted; user `a229d9c5`+`0dcf8f49` + me-refactor/seeder-uid
+uncommitted; openfga-service decision 30 yaml move uncommitted; global-generics v0.42.0 released
+from `chore/loeffel-io/0007-me`. The team works on master/staging, unaffected. Releases done:
+user-proto v0.26.0 + v0.27.0 (me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe
+v0.3.0, email v0.2.0, global-generics v0.40.0/v0.41.0/v0.42.0.
 
 ## Hard constraints (user-imposed)
 

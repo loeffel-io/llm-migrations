@@ -155,6 +155,7 @@ The account:{firebaseUid} is subject only (never a path segment; the user resour
 The service account does not use email: serviceAccount:{serviceAccountRid} (rid must be a jwt claim for the check).
 The object rid will be base32 sha256 encoded which is around 52 characters (internal only, the api resource name keeps the object path; the storage service resolves hash -> path via an indexed column for ListObjects).
 The user rid will be uuid with a max length of `36` characters (decoupled from the firebase uid).
+The firebase uid lives in the user's `account_rid` column (unique per project); `users/me` resolves via this column using the verified `x-mindful-uid` header (`ParseUserMeName`, only GetUser accepts the alias). Email-based aliases are forbidden forever (PII in urls/logs).
 The policies and bindings will be sha256 encoded which is `64` characters, because they will never see the sunlight (ListObjects, Resource names, etc):
 
 ```
