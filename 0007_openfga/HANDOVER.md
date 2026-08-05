@@ -89,9 +89,13 @@ are outdated drafts, ignore them.
     exist in the model; these entries can never match).
 18. Anonymous firebase sign-in is NOT supported. If it ever is, the contextual tuple must check the
     `sign_in_provider` claim.
-19. `x-mindful-email` header is dead: ext authz reads the account from the EXISTING istio-forwarded
-    `x-mindful-uid` header (no new header, no istio change needed for the read side). The istio-side
-    removal of the email header itself is still step 12 (user-owned).
+19. `x-mindful-email` header STAYS (revised, supersedes the old "header is dead" note): ext authz reads
+    the account from the istio-forwarded `x-mindful-uid` header, but user-service CreateUser reads the
+    verified `x-mindful-email` header to set `User.Email` server-side (body email is ignored at create,
+    `FromProto` takes an `email` param; update keeps body email for admin flows). Rationale: enforcing
+    the account-email match via auth GetAccount would mean firebase egress per signup (429 risk under
+    load) - the istio-verified jwt claim is free. Email stays banned from logs and tuples. Step 12
+    (istio removal) is CANCELLED.
 20. billing `price` + `userBillingAccount` outboxes are permanent no-ops -> delete (README challenge 2).
 21. **Role rids are fixed kebab-case iam names**: `user-user-admin`, `user-organization-admin`,
     `user-membership-admin`, `user-membership-invitation-user`, `storage-object-admin`,
@@ -394,10 +398,12 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
     `write_source_files` targets (`bazel query 'kind(_write_source_file, //...)'`) after proto edits.
     Known env issue: email-proto `//deployments/production/npm` type-check fails with 403 (npm
     registry auth expired), unrelated to changes - proto tests all pass.
-12. **Ext authz header cleanup** (istio config, user-owned; THE ONLY REMAINING STEP): remove the
-    `x-mindful-email` claim-to-header extraction from the istio RequestAuthentication/ext-authz
-    config. ALL services now read only `x-mindful-uid`/`x-mindful-tenant` - the removal makes the
-    mesh fully email-free. Pure removal, no rename, no service changes needed.
+12. ~~**Ext authz header cleanup**~~ CANCELLED (decision 19 revised): the `x-mindful-email` header
+    stays in istio (earth-base dev/staging main.tf + earth-auth-service auth.yaml) because user-service
+    CreateUser consumes it (server-side email, no firebase egress). Started removals were reverted.
+    Services still never LOG the email (the email-service authz log map still had `grpc.email` -
+    fixed to uid/tenant). Leftover out of 0007 scope: earth-billingrevenuecat-service main.go:202
+    still logs `x-mindful-email` (repo not in the 0007 list, branch `feat/loeffel-io/migration-0002`).
 
 Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel build //...`,
 `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when
@@ -414,8 +420,12 @@ language included as of the final sweep). global-generics: v0.42.0 released; bra
 `chore/loeffel-io/0007-me` additionally has the ci-deployer example comment uncommitted (next
 release). The team works on master/staging, unaffected. Releases done: user-proto v0.26.0 + v0.27.0
 (me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe v0.3.0, email v0.2.0,
-global-generics v0.40.0/v0.41.0/v0.42.0. ALL WORK-ORDER STEPS 0-11 ARE DONE - only step 12
-(istio email header removal, user-owned) remains. Deploy notes: email service needs
+global-generics v0.40.0/v0.41.0/v0.42.0. ALL WORK-ORDER STEPS 0-11 ARE DONE - step 12 was CANCELLED
+(decision 19 revised: email header stays for CreateUser). Session 3 additions (uncommitted):
+user-service CreateUser-email-from-header (model FromProto + service + stale authz TODOs removed,
+build + 6/6 tests + format green), email-service authz log map fix, user-proto comment-only email
+field doc on branch `chore/loeffel-io/0007` (10/10 tests, pb.go unchanged - field comments are not
+emitted). Deploy notes: email service needs
 `EARTH_AUTHORIZATION_SERVICE_ADDR`; the `loeffel-io` env needs model redeploy + reseed
 (decision 30 grant move came after the first deploy).
 

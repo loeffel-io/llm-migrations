@@ -54,7 +54,7 @@ we switch to the firebase uid because its only used for the check. more at solut
   writes at user creation (user.go) get removed: no lifecycle, no chicken-and-egg at signup, always correct.
   We do not support firebase anonymous sign-in; if that ever changes, the contextual tuple must check the
   `sign_in_provider` claim first.
-- the `x-mindful-email` ext authz header is dead: the authz service reads the account from the existing `x-mindful-uid` header, no email in headers/logs. istio-side removal of the email header is a separate user-owned step.
+- the `x-mindful-email` ext authz header STAYS: the authz service reads the account from the existing `x-mindful-uid` header (no email in tuples/logs), but user-service CreateUser reads the verified `x-mindful-email` header to set the user email server-side (the body email is ignored at creation and stays client-settable on update). This enforces the account-email match without a firebase `GetAccount` call per signup (429 risk under load).
 - membership invitations are keyed by email and would write `account:{email}` tuples.
   b2b is disabled for go live, so this is out of scope for now. before b2b goes live: resolve email -> account at invitation accept time, never write email tuples.
 - service accounts also stop using email: `serviceAccount:{serviceAccountRid}` (see solution 4). Important: `serviceAccount:` in openfga means future CUSTOMER service accounts (api clients, ci - like gcp's iam service accounts, owned by an account via the `account` relation). Platform service-to-service communication uses istio mTLS principals matched in ext authz BEFORE openfga - never openfga subjects. Example rid is `ci-deployer`, deliberately not an earth service name.
@@ -179,6 +179,6 @@ so write side and check side can never diverge and the hashing stays invisible a
 
 ## Conclusion
 
-Status: all four challenges are implemented across all services (see HANDOVER.md for the per-repo state). The only remaining step is the istio-side removal of the x-mindful-email header extraction (user-owned).
+Status: all four challenges are implemented across all services (see HANDOVER.md for the per-repo state). The istio `x-mindful-email` header stays (consumed by user-service CreateUser); it never appears in tuples or logs.
 
 Lets start building with all the informations you have. btw: do not publish any protos yourself - change the code if needed but do not link to the new version. let me know if i need to do this for you and release a new version.
