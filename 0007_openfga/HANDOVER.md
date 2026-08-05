@@ -190,6 +190,25 @@ are outdated drafts, ignore them.
     Fixture rid renamed `earth-billing` -> `ci-deployer` (openfga yamls + model comment +
     global-generics ServiceAccountSubject example on branch `chore/loeffel-io/0007-me`, needs
     next release) so nobody mistakes it for a platform identity again.
+40. **CreateUser email comes from the `x-mindful-email` header** (decision 19 revised, session 3):
+    `User.Email` is set server-side from the istio-verified email claim; the body email is IGNORED
+    at creation (proto field already OPTIONAL + IGNORE_IF_ZERO_VALUE, comment-only doc change).
+    Rejected alternative: enforcing via auth-service `GetAccount` = firebase egress per signup,
+    429 risk under load (user veto). Email stays banned from LOGS and TUPLES; the header itself
+    is harmless and stays in istio. Update keeps the body email (admin flows). Implementation:
+    `User.FromProto` gained an `email string` param (create branch sets it next to AccountRid);
+    the fieldmask email block is guarded with `&& email == ""` - guard on the PARAM, not on
+    `user.GetEmail()` (user improvement: independent of struct-population order, survives future
+    struct changes). Missing uid/email headers in CreateUser = `InternalError` + `Error` log
+    (infra invariant violated, not a client error - ext authz already passed).
+41. **Review catch (session 3, do not repeat)**: the user's cleanup commit dropped the guard on the
+    fieldmask email block entirely; solver expands UNSPECIFIED to ALL masks, so the block always
+    runs at create - empty body email broke every signup, set body email overwrote the verified
+    header email (the exact spoof decision 40 prevents). When touching FromProto branches, check
+    which fieldmask blocks run at CREATE (all of them) vs UPDATE (only requested ones).
+42. `auth.mindful.com/Account` is the current resource type string (user.proto:143) but the auth
+    service will be renamed to `authentication` soon - proto comments may reference either until
+    the rename lands.
 
 ## Status: what is DONE
 
@@ -421,13 +440,17 @@ language included as of the final sweep). global-generics: v0.42.0 released; bra
 release). The team works on master/staging, unaffected. Releases done: user-proto v0.26.0 + v0.27.0
 (me pattern), user-internal v0.5.0, billing v0.5.0, billingstripe v0.3.0, email v0.2.0,
 global-generics v0.40.0/v0.41.0/v0.42.0. ALL WORK-ORDER STEPS 0-11 ARE DONE - step 12 was CANCELLED
-(decision 19 revised: email header stays for CreateUser). Session 3 additions (uncommitted):
-user-service CreateUser-email-from-header (model FromProto + service + stale authz TODOs removed,
-build + 6/6 tests + format green), email-service authz log map fix, user-proto comment-only email
-field doc on branch `chore/loeffel-io/0007` (10/10 tests, pb.go unchanged - field comments are not
-emitted). Deploy notes: email service needs
+(decision 19 revised: email header stays for CreateUser). Session 3 (decisions 40-42): user-service
+CreateUser-email-from-header committed by user as `d9ecf2be chore: 0007` + `8252cb41 chore: clean`;
+final `&& email == ""` guard (decision 40/41) UNCOMMITTED on top - build + 6/6 tests + format green.
+email-service authz log map fix uncommitted (with the step 10 batch). user-proto: comment-only email
+field doc, committed `8a9ade4 chore: docs` on `chore/loeffel-io/0007` (10/10 tests, pb.go unchanged -
+field comments are not emitted, no release needed). Deploy notes: email service needs
 `EARTH_AUTHORIZATION_SERVICE_ADDR`; the `loeffel-io` env needs model redeploy + reseed
-(decision 30 grant move came after the first deploy).
+(decision 30 grant move came after the first deploy). Session 3 survey leftovers: content-service is
+on branch `chore/loeffel-io/0007-2` (revert+reapply history) with a stray garbage edit
+`"grpc sdfjksdf connection close"` in `cmd/earth_content_service/main.go:553` - ask the user;
+earth-base has the (restored) istio header terraform in deployments/dev+staging main.tf.
 
 ## Hard constraints (user-imposed)
 
