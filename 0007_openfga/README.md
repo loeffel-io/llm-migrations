@@ -120,7 +120,7 @@ What we do now (per challenge 2 rules, avoids a backfill migration later):
 
 What we defer (purely additive later, zero tuple migration): `rolePolicy`/`roleBinding`, `skuPolicy`/`skuBinding`, the non-underscore `iam_role_*`/`billing_sku_*` relations and `SetIamPolicy` support.
 
-Sku entitlement targets: `Sku.Object` is an open set (`{type}:{rid}`), NOT a whitelist - customers can add new `{type}EntitlementPolicy` types to the model later, like custom iam permissions. The value stays readable in db and api; only the userEntitlement tuple builder resolves it via the generic `authorizationmodelresourcev1.EntitlementPolicyObject` to `{type}EntitlementPolicy:{b32sha256:rid}`. Validated at sku write time. Currently resolvable at go live: `project:` and `content:` (content needs its entitlement policy link outbox enabled).
+Sku entitlement targets: `Sku.Object` is an open set (`{type}:{rid}`), NOT a whitelist - customers can add new `{type}EntitlementPolicy` types to the model later, like custom iam permissions. The value stays readable in db and api; only the userEntitlement tuple builder resolves it via the generic `authorizationmodelresourcev1.EntitlementPolicyObject` to `{type}EntitlementPolicy:{b32sha256:rid}`. Validated at sku write time. Currently resolvable at go live: `project:` and `content:` (content writes its `contentEntitlementPolicy -> content` link at creation; the full content-scoped chain is tested in `earth_billing_service.fga.yaml`: entitled account signs the content, a project-scoped sku holder does not match the content object - the ext authz project fallback covers them instead).
 
 ### challenge 4
 
@@ -183,9 +183,31 @@ Status: all four challenges are implemented across all services (see HANDOVER.md
 
 Lets start building with all the informations you have. btw: do not publish any protos yourself - change the code if needed but do not link to the new version. let me know if i need to do this for you and release a new version.
 
+## state
+
+- [x] earth-openfga-service: #25
+- [x] earth-authorization-service: https://github.com/mindful-hq/earth-authorization-service/pull/34
+- [x] earth-billing-service: https://github.com/mindful-hq/earth-billing-service/pull/55
+- [x] earth-iam-service: https://github.com/mindful-hq/earth-iam-service/pull/36
+- [x] earth-user-service: https://github.com/mindful-hq/earth-user-service/pull/145
+- [x] earth-resourcemanager-service: https://github.com/mindful-hq/earth-resourcemanager-service/pull/45
+- [x] earth-storage-service: https://github.com/mindful-hq/earth-storage-service/pull/17
+- [ ] earth-billingrevenuecat-service
+- [x] earth-content-service: https://github.com/mindful-hq/earth-content-service/pull/103
+- [x] earth-auth-service: https://github.com/mindful-hq/earth-auth-service/pull/98
+- [x] earth-email-service: https://github.com/mindful-hq/earth-email-service/pull/58
+- [x] earth-language-service: https://github.com/mindful-hq/earth-language-service/pull/37
+- [ ] earth-app-service
+- [ ] earth-billingstripe-service
+- [ ] earth-website-service
+- [ ] earth-hub-service
+- [ ] earth-emailmailgun-service
+
 ## Onboarding frontend
 
 - please bump all proto dependencies to the latest version
 - user rid switched to uuid and does not longer have the account rid as user rid (they are different now!). you can use the `projects/mindful/users/me` alias to get the user rid
 - group `all-users` and `all-authenticated-users` are gone, use `all-accounts` and `all-authenticated-accounts`
 - before the migration the account got added to the `all-authenticated-accounts` group on user creation. now the account is instant part of the `all-authenticated-accounts` group, no matter if id token or google session token authenticated. with this change there is now a `user_user_create` permission on the `resourcemanager.mindful.com/Project` policy available.
+- organization, membership, membershipInvitation services still disabled
+- content collection services still disabled

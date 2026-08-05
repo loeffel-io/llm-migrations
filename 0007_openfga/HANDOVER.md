@@ -209,6 +209,32 @@ are outdated drafts, ignore them.
 42. `auth.mindful.com/Account` is the current resource type string (user.proto:143) but the auth
     service will be renamed to `authentication` soon - proto comments may reference either until
     the rename lands.
+43. **Content-scoped sku entitlement chain is yaml-tested** (session 4 gap fix): the go-live
+    content-sku feature (challenge 3 / decision 29) had NO openfga test. Added to
+    `earth_billing_service.fga.yaml` (uncommitted): `content:yoga-emma` + `contentEntitlementPolicy`
+    link + content-scoped `sku:content/yoga-single` + userEntitlement for `account:uid-emma`;
+    asserts `content_content_sign` true on `content:yoga-emma` for the entitled account, false for
+    the PROJECT-scoped sku holder on the content object (documents scoping; project fallback in ext
+    authz still covers them). Ids in yamls stay readable preimages (model is id-agnostic).
+44. **Production-readiness reviews done (session 4)**: authorization (`18ba9df`), email (`5cb0ff8`),
+    content (`cf151e7`) all verified consistent + green, cleared for deployment. Content findings:
+    the `0007-2` branch revert+reapply nets to ZERO diff vs the original `475b8ea chore: 0007`
+    (`git diff 475b8ea..cf151e7` is empty) and the stray `sdfjksdf` main.go edit is gone - history
+    noisy, state correct. Content builder guards verified: `srcContent == nil` -> create writes
+    (parent link + contentEntitlementPolicy link), `dstContent == nil` -> delete removes
+    (policy link + entitlement link + parent link), updates emit nothing. Deploy order:
+    openfga model (redeploy + iam reseed for the decision 30 grant move) -> authorization -> email
+    (needs the `%{earthAuthorizationServiceAddr}` template value populated) -> rest.
+45. **Billing review (session 4): one bug found + fixed (uncommitted)** - sku grant tuples wrote
+    ONLY `account:*`, but the model `_sku` type is `[account:*, serviceAccount:*]`, the billing yaml
+    seeds both, and the iam `_role` builder writes both. Fixed sku.go create+delete grant loops to
+    emit the `ServiceAccountSubject("*")` tuple next to each account wildcard (iam pattern verbatim),
+    sku_test.go fixtures updated, gazelle for the new iam_v1 dep. Build + 8/8 tests + format green.
+    Rest of billing verified clean: entitlement `relation: "_sku"` + hashed EntitlementPolicyObject +
+    commitment condition with outage period; tier link-only lazy builder; price delete keeps Patch;
+    both no-op outboxes fully gone (tables, mains, atlas); ancestor checks (price -> sku,
+    userBillingAccount -> user); no hand-rolled tuple strings outside tests; uid/tenant in envoy +
+    both log maps; migrations 1 up + 1 down DDL each. Billing cleared for deployment after this fix.
 
 ## Status: what is DONE
 
@@ -447,10 +473,21 @@ email-service authz log map fix uncommitted (with the step 10 batch). user-proto
 field doc, committed `8a9ade4 chore: docs` on `chore/loeffel-io/0007` (10/10 tests, pb.go unchanged -
 field comments are not emitted, no release needed). Deploy notes: email service needs
 `EARTH_AUTHORIZATION_SERVICE_ADDR`; the `loeffel-io` env needs model redeploy + reseed
-(decision 30 grant move came after the first deploy). Session 3 survey leftovers: content-service is
-on branch `chore/loeffel-io/0007-2` (revert+reapply history) with a stray garbage edit
-`"grpc sdfjksdf connection close"` in `cmd/earth_content_service/main.go:553` - ask the user;
-earth-base has the (restored) istio header terraform in deployments/dev+staging main.tf.
+(decision 30 grant move came after the first deploy).
+
+Session 4 (production-readiness review sweep, decisions 43-44): REVIEWED AND CLEARED = authorization
+(`18ba9df`, clean tree), email (`5cb0ff8`, clean tree), content (`cf151e7` on `0007-2`, clean tree,
+stray edit gone, revert/reapply nets to zero), user + user-proto (session 3 changes committed by
+user). Openfga-service uncommitted on top of `050c349`: decision 30 grant move + ci-deployer rename
+(model.fga, iam+resourcemanager yamls) + NEW content-scoped-sku test in earth_billing_service.fga.yaml
+(decision 43) - 11/11 fga tests green. NOT YET production-reviewed in this depth: billing, iam,
+storage, auth, resourcemanager, billingstripe, language, emailmailgun (all implemented + green at
+implementation time, but no dedicated post-hoc review pass; billingstripe/language/emailmailgun also
+still have UNCOMMITTED working trees - header/log-map/v0.42.0 sweeps). Other leftovers: earth-base
+istio terraform restored (header stays); earth-billingrevenuecat-service (NOT in 0007 scope, branch
+`feat/loeffel-io/migration-0002`) still logs `x-mindful-email` at main.go:202; global-generics
+`chore/loeffel-io/0007-me` has the ci-deployer comment + a service_account.go edit uncommitted
+(next release).
 
 ## Hard constraints (user-imposed)
 
