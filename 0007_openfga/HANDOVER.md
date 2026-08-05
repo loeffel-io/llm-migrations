@@ -247,6 +247,24 @@ are outdated drafts, ignore them.
     (decision 13) - intentionally untouched. Remaining loose ends (non-blocking): global-generics
     `0007-me` service_account.go comment edit uncommitted (next release); email-proto npm publish 403
     (frontend blocker only); frontend team items in README "Onboarding frontend".
+47. **Deploy bug (session 4): authz proto still validated account as EMAIL** - step 11's
+    "authorization-proto untouched by design" was WRONG for one field:
+    `BatchCheckPermissionsRequest.account` had `string.email = true`
+    (authorization_model.proto:125), so the authz service's protovalidate interceptor rejected
+    every check once ext authz started sending uids ("account: value must be a valid email
+    address"). Fixed on `chore/loeffel-io/0007` (uncommitted): pattern `^[a-zA-Z0-9-]{1,128}$`
+    (mirrors the auth-proto account segment), example uid comment, pb.go regenerated, 4/4 tests.
+    BLOCKER: user must release authorization-service-proto, then bump earth-authorization-service
+    go.mod + MODULE.bazel git_override (BOTH) from v0.9.0 and redeploy authz.
+48. **Deploy lesson (session 4): seeders only emit tuples on the row-CREATE path** - after a model
+    redeploy with a fresh store, every service DB that keeps its seeded rows writes ZERO tuples
+    (seeder skips, outbox empty). The user reset auth + resourcemanager but not iam -> no `_role:`
+    grants -> every anonymous `resourcemanager_project_get` false (openfga log:
+    `datastore_query_count: 0`, clean false). Reset checklist for a store reset: auth (wildcard
+    group tuple), resourcemanager (policy chain + service links), iam (~40 roles: links + grants),
+    billing (projectEntitlementPolicy:mindful), user (per-user chains). Verify with
+    `fga tuple read --object _role:guest` / `_role:customer` (customer must include
+    `_user_user_create`, decision 30) and check `*_batch_write_tuples_outboxes` drain without fails.
 
 ## Status: what is DONE
 
