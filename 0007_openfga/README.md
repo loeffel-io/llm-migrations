@@ -182,3 +182,10 @@ so write side and check side can never diverge and the hashing stays invisible a
 Status: all four challenges are implemented across all services (see HANDOVER.md for the per-repo state). The istio `x-mindful-email` header stays (consumed by user-service CreateUser); it never appears in tuples or logs.
 
 Lets start building with all the informations you have. btw: do not publish any protos yourself - change the code if needed but do not link to the new version. let me know if i need to do this for you and release a new version.
+
+## Onboarding frontend
+
+- please bump all proto dependencies to the latest version
+- user rid switched to uuid and does not longer have the account rid as user rid (they are different now!). you can use the `projects/mindful/users/me` alias to get the user rid
+- group `all-users` and `all-authenticated-users` are gone, use `all-accounts` and `all-authenticated-accounts`
+- before the migration the account got added to the `all-authenticated-accounts` group on user creation. now the account is instant part of the `all-authenticated-accounts` group, no matter if id token or google session token authenticated. with this change there is now a `user_user_create` permission on the `resourcemanager.mindful.com/Project` policy available.
