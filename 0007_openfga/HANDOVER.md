@@ -235,6 +235,18 @@ are outdated drafts, ignore them.
     both no-op outboxes fully gone (tables, mains, atlas); ancestor checks (price -> sku,
     userBillingAccount -> user); no hand-rolled tuple strings outside tests; uid/tenant in envoy +
     both log maps; migrations 1 up + 1 down DDL each. Billing cleared for deployment after this fix.
+46. **FINAL REVIEW (session 4, GO FOR PRODUCTION)**: all 14 service repos on their 0007 branches
+    (content on `0007-2`), ALL trees clean, ALL pushed, PRs open (openfga #25, authz #34, billing #55,
+    iam #36, user #145, resourcemanager #45, storage #17, revenuecat #8, content #103, auth #98,
+    email #58, language #37, billingstripe #12, emailmailgun #37). Full test sweep: 79/79 green
+    across all repos. All session fixes verified IN the commits: billing sku serviceAccount wildcard,
+    revenuecat + email log maps, openfga decision-30 grant on `_role:customer` + yoga-emma sku test,
+    user `&& email == ""` guard. Cross-repo audits clean: zero email-header reads outside user-service
+    CreateUser (by design), zero email log maps, zero old group rids. Remaining `"account:" +` sites
+    are `google.iam.v1.Policy` MEMBER strings (decision 36 form, not tuples) or disabled b2b builders
+    (decision 13) - intentionally untouched. Remaining loose ends (non-blocking): global-generics
+    `0007-me` service_account.go comment edit uncommitted (next release); email-proto npm publish 403
+    (frontend blocker only); frontend team items in README "Onboarding frontend".
 
 ## Status: what is DONE
 
@@ -447,8 +459,11 @@ highest version they need: user v0.42.0, billing/iam v0.41.0, authz v0.40.0 (lif
     stays in istio (earth-base dev/staging main.tf + earth-auth-service auth.yaml) because user-service
     CreateUser consumes it (server-side email, no firebase egress). Started removals were reverted.
     Services still never LOG the email (the email-service authz log map still had `grpc.email` -
-    fixed to uid/tenant). Leftover out of 0007 scope: earth-billingrevenuecat-service main.go:202
-    still logs `x-mindful-email` (repo not in the 0007 list, branch `feat/loeffel-io/migration-0002`).
+    fixed to uid/tenant). earth-billingrevenuecat-service: log map fixed to uid/tenant (session 4,
+    new branch `chore/loeffel-io/0007` off `feat/loeffel-io/migration-0002`, uncommitted, 3/3 tests
+    green). It needs nothing else: no envoy/ext-authz, no tuple writers, `app_user_id` is
+    RevenueCat's id (not our user rid); global-generics v0.38.11 pin is fine (no tuple functions
+    used).
 
 Work per repo: branch `chore/loeffel-io/0007` (fork from current branch), `bazel build //...`,
 `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when
@@ -487,7 +502,12 @@ still have UNCOMMITTED working trees - header/log-map/v0.42.0 sweeps). Other lef
 istio terraform restored (header stays); earth-billingrevenuecat-service (NOT in 0007 scope, branch
 `feat/loeffel-io/migration-0002`) still logs `x-mindful-email` at main.go:202; global-generics
 `chore/loeffel-io/0007-me` has the ci-deployer comment + a service_account.go edit uncommitted
-(next release).
+(next release). Frontends (app/hub/website, frontend-team-owned): global-generics is Go-only, NOT
+needed there (frontends have own TS resource helpers). They need the README "Onboarding frontend"
+list; breaking: `createUserRequest.setUserId(...)` in app `UserCreateUserView.vue:99` + hub
+`UserCreateUserView.vue:227` (field removed in user-proto v0.26.0) and `setEmail` at create is now
+ignored server-side; app/hub pin old proto npms (user ^0.22.3/^0.25.0); hub `userName(projectRid,
+userRid)` route params need an audit (rid != uid now); website has no mindful proto deps (no-op).
 
 ## Hard constraints (user-imposed)
 

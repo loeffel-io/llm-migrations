@@ -192,22 +192,25 @@ Lets start building with all the informations you have. btw: do not publish any 
 - [x] earth-user-service: https://github.com/mindful-hq/earth-user-service/pull/145
 - [x] earth-resourcemanager-service: https://github.com/mindful-hq/earth-resourcemanager-service/pull/45
 - [x] earth-storage-service: https://github.com/mindful-hq/earth-storage-service/pull/17
-- [ ] earth-billingrevenuecat-service
+- [x] earth-billingrevenuecat-service: https://github.com/mindful-hq/earth-billingrevenuecat-service/pull/8
 - [x] earth-content-service: https://github.com/mindful-hq/earth-content-service/pull/103
 - [x] earth-auth-service: https://github.com/mindful-hq/earth-auth-service/pull/98
 - [x] earth-email-service: https://github.com/mindful-hq/earth-email-service/pull/58
 - [x] earth-language-service: https://github.com/mindful-hq/earth-language-service/pull/37
-- [ ] earth-app-service
-- [ ] earth-billingstripe-service
+- [x] earth-billingstripe-service: https://github.com/mindful-hq/earth-billingstripe-service/pull/12
+- [x] earth-emailmailgun-service: https://github.com/mindful-hq/earth-emailmailgun-service/pull/37
+- [ ] earth-app-service: frontend team
 - [ ] earth-website-service
 - [ ] earth-hub-service
-- [ ] earth-emailmailgun-service
 
 ## Onboarding frontend
 
 - please bump all proto dependencies to the latest version
-- user rid switched to uuid and does not longer have the account rid as user rid (they are different now!). you can use the `projects/mindful/users/me` alias to get the user rid
+- `CreateUserRequest.user_id` is REMOVED (user-proto v0.26.0): delete the `createUserRequest.setUserId(...)` calls (app `UserCreateUserView.vue:99`, hub `UserCreateUserView.vue:227`) - the user rid is server generated now
+- `User.email` at creation is ignored: the backend sets it from the verified jwt email header. drop `user.setEmail(...)` in the create user flows (it stays for updates)
+- user rid switched to uuid and does not longer have the account rid as user rid (they are different now!). you can use the `projects/mindful/users/me` alias to get the user rid. audit all `userName(projectRid, userRid)` route params that were seeded from the account uid
 - group `all-users` and `all-authenticated-users` are gone, use `all-accounts` and `all-authenticated-accounts`
 - before the migration the account got added to the `all-authenticated-accounts` group on user creation. now the account is instant part of the `all-authenticated-accounts` group, no matter if id token or google session token authenticated. with this change there is now a `user_user_create` permission on the `resourcemanager.mindful.com/Project` policy available.
 - organization, membership, membershipInvitation services still disabled
 - content collection services still disabled
+- no global-generics involvement: that library is Go-only (backend tuple/name builders), the frontends keep their own ts resource helpers
