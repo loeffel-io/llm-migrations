@@ -11,7 +11,8 @@ We call this migration `0010_way_back_home`.
 
 we need to create new branches in all the affected repositories: `chore/loeffel-io/0010`.
 some projects does have a `AGENTS.md` file - you must follow the instructions in this file.
-if there is no `AGENTS.md` file, the migration needs to be finished with a `bazel build //...` and `bazel test //...` to prove everything works.
+if there is no `AGENTS.md` file, the migration needs to be finished
+with `bazel build //...` and `bazel test //...` to prove everything works.
 i will run the terraform migrations myself when everything is ready.
 we do not delete the old `us-central1` resources for now - i will delete them myself if required.
 i will create completely new gcp projects for the new resources.
@@ -86,7 +87,7 @@ i will create completely new gcp projects for the new resources.
 
 ## resources
 
-The need to add the `-eu-1` suffix to ALL REGION SPECIFIC resources:
+The need to add the `-eu-1` suffix to ALL REGION SPECIFIC resources to prevent name conflicts:
 
 ```text
 google storage buckets
@@ -97,14 +98,12 @@ google redis cluster
 ...
 ```
 
-by this we think we are future proof with the naming AND the region resources names should not conflict.
-
 ## upgrades tbd
 
 - terraform google and google beta min version: v7.43.0
 - tflint google: v0.39.0
-- global-tfmodule-ksa: v0.3.0
-- global-tfmodule-gsa: v0.3.0
+- global-tfmodule-ksa: v0.4.0
+- global-tfmodule-gsa: v0.4.0
 
-upgrade with `td|ts|tp -- init -upgrade` while d is dev, s is staging, p is production.
+upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, tp is production.
 you are not allowed to do any apply or destroy.
