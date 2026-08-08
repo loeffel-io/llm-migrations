@@ -24,22 +24,20 @@ we need to make sure that every service has the latest proto versions:
 
 here are the latest proto versions:
 
-| Proto                                 | New version |
-| ------------------------------------- | ----------- |
-| global-proto                          | v2.23.0     |
-| earth-content-service-proto           | v0.8.0      |
-| earth-email-service-proto             | v1.7.0      |
-| earth-user-service-proto              | v0.28.0     |
-| earth-billingrevenuecat-service-proto | v0.2.0      |
-| earth-iam-service-proto               | v0.5.0      |
-| earth-language-service-proto          | v0.5.0      |
-| earth-authorization-service-proto     | v0.11.0     |
-| earth-billing-service-proto           | v0.6.0      |
-| earth-emailmailgun-service-proto      | v0.5.0      |
-| earth-authentication-service-proto    | v0.20.0     |
-| earth-billingstripe-service-proto     | v0.4.0      |
-| earth-storage-service-proto           | v0.10.0     |
-| earth-resourcemanager-service-proto   | v0.8.0      |
+earth-content-service-proto │ v0.10.0
+earth-email-service-proto │ v1.9.0
+earth-user-service-proto │ v0.30.0
+earth-iam-service-proto │ v0.7.0
+earth-language-service-proto │ v0.7.0
+earth-authorization-service-proto │ v0.13.0
+earth-billing-service-proto │ v0.8.0
+earth-authentication-service-proto │ v0.22.0
+earth-billingstripe-service-proto │ v0.6.0
+earth-storage-service-proto │ v0.12.0
+earth-resourcemanager-service-proto │ v0.10.0
+earth-email-service-internal-proto │ v0.7.0
+earth-billing-service-internal-proto │ v0.8.0
+earth-user-service-internal-proto │ v0.6.0
 
 ## important (app, hub, website)
 

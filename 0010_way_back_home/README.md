@@ -98,3 +98,13 @@ google redis cluster
 ```
 
 by this we think we are future proof with the naming AND the region resources names should not conflict.
+
+## upgrades tbd
+
+- terraform google and google beta min version: v7.43.0
+- tflint google: v0.39.0
+- global-tfmodule-ksa: v0.3.0
+- global-tfmodule-gsa: v0.3.0
+
+upgrade with `td|ts|tp -- init -upgrade` while d is dev, s is staging, p is production.
+you are not allowed to do any apply or destroy.
