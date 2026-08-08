@@ -105,6 +105,31 @@ earth-dev-382708 is now earth-dev-504915
 earth-staging-382708 is now earth-staging-504915
 earth-production is now earth-production-504915
 
+## fixing naming restrictions
+
+we need to fix the naming restrictions before going live.
+a lot of gcp resource names must be really short and unique.
+
+please make sure that the iam gsa names are like this:
+
+```
+module "gsa_earth_authentication_service_dev" {
+    source = "git@github.com:mindful-hq/global-tfmodule-gsa?ref=v0.1.7"
+    gcloud_service_account_account_id = "${var.gcloud_project}-authentication-${substr("service", 0, 1)}-${substr(var.env, 0, 1)}"
+    gcloud_service_account_description = "${var.gcloud_project}-authentication-service-${var.env}"
+    gcloud_project_id = var.gcloud_project_id
+```
+
+and this:
+
+```
+module "gsa_earth_authentication_service_dev_impl" {
+    source                             = "git@github.com:mindful-hq/global-tfmodule-gsa?ref=v0.1.7"
+    gcloud_service_account_account_id  = "${var.gcloud_project}-authentication-${substr("service", 0, 1)}-${substr(var.env, 0, 1)}-${substr("impl", 0, 1)}"
+    gcloud_service_account_description = "${var.gcloud_project}-authentication-service-${var.env}-impl"
+    gcloud_project_id                  = var.gcloud_project_id
+```
+
 ## terraform upgrades
 
 please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, tp is production:
@@ -115,3 +140,7 @@ please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, 
 - global-tfmodule-gsa: v0.4.0
 
 you are not allowed to do any apply or destroy.
+
+```
+
+```
