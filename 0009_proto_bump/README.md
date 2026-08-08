@@ -24,20 +24,24 @@ we need to make sure that every service has the latest proto versions:
 
 here are the latest proto versions:
 
-earth-content-service-proto │ v0.10.0
-earth-email-service-proto │ v1.9.0
-earth-user-service-proto │ v0.30.0
-earth-iam-service-proto │ v0.7.0
-earth-language-service-proto │ v0.7.0
-earth-authorization-service-proto │ v0.13.0
-earth-billing-service-proto │ v0.8.0
-earth-authentication-service-proto │ v0.22.0
-earth-billingstripe-service-proto │ v0.6.0
-earth-storage-service-proto │ v0.12.0
-earth-resourcemanager-service-proto │ v0.10.0
-earth-email-service-internal-proto │ v0.7.0
-earth-billing-service-internal-proto │ v0.8.0
-earth-user-service-internal-proto │ v0.6.0
+```
+earth-content-service-proto │ v0.11.0
+earth-email-service-proto │ v1.10.0
+earth-user-service-proto │ v0.31.0
+earth-billingrevenuecat-service-proto │ v0.4.0
+earth-iam-service-proto │ v0.8.0
+earth-language-service-proto │ v0.8.0
+earth-authorization-service-proto │ v0.14.0
+earth-billing-service-proto │ v0.9.0
+earth-emailmailgun-service-proto │ v0.7.0
+earth-authentication-service-proto │ v0.23.0
+earth-billingstripe-service-proto │ v0.7.0
+earth-storage-service-proto │ v0.13.0
+earth-resourcemanager-service-proto │ v0.11.0
+earth-email-service-internal-proto │ v0.8.0
+earth-billing-service-internal-proto │ v0.9.0
+earth-user-service-internal-proto │ v0.7.0
+```
 
 ## important (app, hub, website)
 
@@ -51,3 +55,7 @@ if you encounter still an authentication/authorization error, you need to run `b
 do this in a specific `chore/loeffel-io/0009` branch.
 needs to be run to be finished: `bazel build //...`, `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when deps change.
 some services does have a `AGENTS.md` file - you must follow the instructions in this file.
+
+```
+
+```
