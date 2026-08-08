@@ -98,12 +98,20 @@ google redis cluster
 ...
 ```
 
-## upgrades tbd
+## new gcp projects
+
+buildkite is now base-504915
+earth-dev-382708 is now earth-dev-504915
+earth-staging-382708 is now earth-staging-504915
+earth-production is now earth-production-504915
+
+## terraform upgrades
+
+please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, tp is production:
 
 - terraform google and google beta min version: v7.43.0
 - tflint google: v0.39.0
 - global-tfmodule-ksa: v0.4.0
 - global-tfmodule-gsa: v0.4.0
 
-upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, tp is production.
 you are not allowed to do any apply or destroy.
