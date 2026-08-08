@@ -55,7 +55,3 @@ if you encounter still an authentication/authorization error, you need to run `b
 do this in a specific `chore/loeffel-io/0009` branch.
 needs to be run to be finished: `bazel build //...`, `bazel test //...`, `bazel run //:format` (except global-generics: go fmt, see above), gazelle when deps change.
 some services does have a `AGENTS.md` file - you must follow the instructions in this file.
-
-```
-
-```
