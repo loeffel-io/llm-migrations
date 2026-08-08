@@ -39,7 +39,7 @@ earth-billingstripe-service-proto │ v0.7.0
 earth-storage-service-proto │ v0.13.0
 earth-resourcemanager-service-proto │ v0.11.0
 earth-email-service-internal-proto │ v0.8.0
-earth-billing-service-internal-proto │ v0.9.0
+earth-billing-service-internal-proto │ v0.10.0
 earth-user-service-internal-proto │ v0.7.0
 ```
 
