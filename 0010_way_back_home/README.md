@@ -27,7 +27,7 @@ i will create completely new gcp projects for the new resources.
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
-/Users/loeffel/go/src/github.com/mindful-hq/buildkite
+/Users/loeffel/go/src/github.com/mindful-hq/base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
