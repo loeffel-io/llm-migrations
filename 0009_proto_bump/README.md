@@ -1,0 +1,53 @@
+# 0009 - Proto bump
+
+we need to make sure that every service has the latest proto versions:
+
+```
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-app-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-website-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-hub-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service
+```
+
+here are the latest proto versions:
+
+| Proto                                 | New version |
+| ------------------------------------- | ----------- |
+| global-proto                          | v2.23.0     |
+| earth-content-service-proto           | v0.8.0      |
+| earth-email-service-proto             | v1.7.0      |
+| earth-user-service-proto              | v0.28.0     |
+| earth-billingrevenuecat-service-proto | v0.2.0      |
+| earth-iam-service-proto               | v0.5.0      |
+| earth-language-service-proto          | v0.5.0      |
+| earth-authorization-service-proto     | v0.11.0     |
+| earth-billing-service-proto           | v0.6.0      |
+| earth-emailmailgun-service-proto      | v0.5.0      |
+| earth-authentication-service-proto    | v0.20.0     |
+| earth-billingstripe-service-proto     | v0.4.0      |
+| earth-storage-service-proto           | v0.10.0     |
+| earth-resourcemanager-service-proto   | v0.8.0      |
+
+## important (app, hub, website)
+
+this needs to be done also in the `pubspec.yaml` and `package.json`.
+to bump the package.json file you must run `bazel run -- @pnpm//:pnpm --dir $PWD install --lockfile-only`.
+if you encounter an authentication/authorization error, you need to run `bazel run //deployments/production/npm:npmrc`.
+if you encounter still an authentication/authorization error, you need to run `bazel clean --expunge` because this is a known issue.
+
+## status
+
+do this in a specific `chore/loeffel-io/0009` branch.
