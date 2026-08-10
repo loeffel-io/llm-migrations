@@ -41,15 +41,8 @@ here are the latest proto versions:
 | earth-user-service-internal-proto | v0.9.0 |
 ```
 
-## important (app, hub, website)
-
-this needs to be done also in the `pubspec.yaml` and `package.json`.
-to bump the package.json file you must run `bazel run -- @pnpm//:pnpm --dir $PWD install --lockfile-only`.
-if you encounter an authentication/authorization error, you need to run `bazel run //deployments/production/npm:npmrc`.
-if you encounter still an authentication/authorization error, you need to run `bazel clean --expunge` because this is a known issue.
-
 ## status
 
-do this in a specific `chore/loeffel-io/0009` branch.
+do this in a specific `chore/loeffel-io/0009` branch based on the `0007` branch. do not use main as upstream.
 needs to be run to be finished: `bazel build //...`, `bazel test //...`, `bazel run //:format` (except global-generics: `bgo - fmt ./...`, see above), gazelle when deps change.
-some services does have a `AGENTS.md` file - you must follow the instructions in this file.
+some services does have a `AGENTS.md` file - you must follow the instructions in this file!
