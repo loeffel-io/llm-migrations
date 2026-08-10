@@ -28,6 +28,7 @@ i will create completely new gcp projects for the new resources.
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
 /Users/loeffel/go/src/github.com/mindful-hq/base
+/Users/loeffel/go/src/github.com/mindful-hq/buildkite
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
@@ -101,7 +102,7 @@ google redis cluster
 ## new gcp projects
 
 `buildkite-382710` is now `base-504915`
-`base-504915` is now planned to split up into `base-504915` and the buildkite part `buildkite-504915`
+`base-504915` is now planned to split up into `base-504915` and the buildkite part `buildkite-504915`. `base-504915` should only keep the basics. `buildkite-504915` will be the new buildkite project and renovate will be removed.
 `global-382710` is now `global-504915`
 `earth-dev-382708` is now `earth-dev-504915`
 `earth-staging-382708` is now `earth-staging-504915`
