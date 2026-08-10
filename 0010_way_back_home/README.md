@@ -101,6 +101,7 @@ google redis cluster
 ## new gcp projects
 
 `buildkite-382710` is now `base-504915`
+`base-504915` is now split up into `base-504915` and the buildkite part `buildkite-504915`
 `global-382710` is now `global-504915`
 `earth-dev-382708` is now `earth-dev-504915`
 `earth-staging-382708` is now `earth-staging-504915`
