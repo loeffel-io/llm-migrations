@@ -7,7 +7,6 @@ we need to make sure that every service has the latest proto versions:
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-app-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
@@ -15,8 +14,6 @@ we need to make sure that every service has the latest proto versions:
 /Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-website-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-hub-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service
@@ -25,6 +22,7 @@ we need to make sure that every service has the latest proto versions:
 here are the latest proto versions:
 
 ```
+| global-proto | v2.23.0 |
 | earth-content-service-proto | v0.12.0 |
 | earth-email-service-proto | v1.11.0 |
 | earth-user-service-proto | v0.32.0 |
@@ -40,7 +38,7 @@ here are the latest proto versions:
 | earth-resourcemanager-service-proto | v0.12.0 |
 | earth-email-service-internal-proto | v0.9.0 |
 | earth-billing-service-internal-proto | v0.10.0 |
-| earth-user-service-internal-proto | v0.8.0 |
+| earth-user-service-internal-proto | v0.9.0 |
 ```
 
 ## important (app, hub, website)
