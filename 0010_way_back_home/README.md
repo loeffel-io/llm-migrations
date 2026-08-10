@@ -31,7 +31,7 @@ i will create completely new gcp projects for the new resources.
 ### stage 2
 
 ```
-/Users/loeffel/go/src/github.com/mindful-hq/global-base
+/Users/loeffel/go/src/github.com/mindful-hq/global-base # DONE
 /Users/loeffel/go/src/github.com/mindful-hq/earth-base
 /Users/loeffel/go/src/github.com/mindful-hq/buildkite
 ```
