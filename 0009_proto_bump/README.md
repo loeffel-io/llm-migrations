@@ -1,6 +1,6 @@
 # 0009 - Proto bump
 
-we need to make sure that every service has the latest proto versions:
+migration time. we need to make sure that every service has the latest proto versions:
 
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
@@ -43,6 +43,6 @@ here are the latest proto versions:
 
 ## status
 
-do this in a specific `chore/loeffel-io/0009` branch based on the `0007` branch. do not use main as upstream.
+do this in a specific `chore/loeffel-io/0009` branch based on the `0007` (0007-2 for content) branch. do not use main as upstream.
 needs to be run to be finished: `bazel build //...`, `bazel test //...`, `bazel run //:format` (except global-generics: `bgo - fmt ./...`, see above), gazelle when deps change.
 some services does have a `AGENTS.md` file - you must follow the instructions in this file!
