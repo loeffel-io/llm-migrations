@@ -32,7 +32,7 @@ i will create completely new gcp projects for the new resources.
 
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/global-base # DONE
-/Users/loeffel/go/src/github.com/mindful-hq/earth-base
+/Users/loeffel/go/src/github.com/mindful-hq/earth-base # dev done
 /Users/loeffel/go/src/github.com/mindful-hq/buildkite
 ```
 
