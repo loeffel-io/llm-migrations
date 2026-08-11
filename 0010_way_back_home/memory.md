@@ -106,18 +106,18 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - dev sql databases: one per dev (loeffel-io, master); staging/prod: single
   `earth-openfga-service` db
 - monitoring SLO/alert blocks are commented out in the tf (pre-existing)
-- CURRENT GAP vs README db sizing: openfga sql is `db-g1-small` + `ZONAL`
-  everywhere; README stage-5 says openfga production `lightweight-2 regional`,
-  dev+staging `db-small regional`. User explicitly deferred sizing changes
-  ("deliberate change, kept out of this replication") - likely to be applied
-  in earth-openfga-service (stage 5) or on request.
+- SQL sizing applied per README stage-3 table: dev+staging `db-g1-small`
+  REGIONAL, production `db-lightweight-2` REGIONAL (tier name mapping:
+  db-micro=db-f1-micro, db-small=db-g1-small, db-standard1=db-n1-standard-1,
+  lightweight-2=db-lightweight-2).
 
-## db sizing table from README (stage 5, "sql <prod>; <dev+staging>")
+## db sizing table from README (stage 3 base repos, "sql <prod>; <dev+staging>")
 
 all REGIONAL availability:
 - content/billing/user/storage/resourcemanager: prod db-standard1; dev+staging db-micro
 - iam/email/authorization: prod db-small; dev+staging db-micro
-- openfga: prod lightweight-2; dev+staging db-small
+- openfga: prod lightweight-2; dev+staging db-small (APPLIED)
+- website/language/hub/app/authentication: no sql
 
 ## gotchas / environment notes
 
