@@ -40,18 +40,18 @@ i will create completely new gcp projects for the new resources.
 
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-content-base
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production lightweight-2 regional; sql dev + staging db-small regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base
 ```
 
@@ -92,19 +92,19 @@ i will create completely new gcp projects for the new resources.
 
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-content-service: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service: sql production db-standard1 regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service: sql production lightweight-2 regional; sql dev + staging db-small regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service: sql production db-standard1 regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service: sql production db-standard1 regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service: sql production db-small regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-service
