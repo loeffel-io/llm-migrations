@@ -25,15 +25,15 @@ i will create completely new gcp projects for the new resources.
 ### stage 1
 
 ```text
-/Users/loeffel/go/src/github.com/mindful-hq/base # DONE
+/Users/loeffel/go/src/github.com/mindful-hq/base # buildkite missing
 ```
 
 ### stage 2
 
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/global-base # DONE
-/Users/loeffel/go/src/github.com/mindful-hq/earth-base # dev done
-/Users/loeffel/go/src/github.com/mindful-hq/buildkite
+/Users/loeffel/go/src/github.com/mindful-hq/earth-base # DONE
+/Users/loeffel/go/src/github.com/mindful-hq/buildkite-base # missing
 ```
 
 ### stage 3
