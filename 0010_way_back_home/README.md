@@ -20,19 +20,31 @@ i will run the terraform migrations myself when everything is ready.
 we do not delete the old `us-central1` resources for now - i will delete them myself if required.
 i will create completely new gcp projects for the new resources.
 
+## pipeline
+
+we migrated the build pipelines from https://github.com/buildkite/charts and https://github.com/EmbarkStudios/k8s-buildkite-plugin to https://github.com/buildkite/agent-stack-k8s.
+that requires a `build/buildkite/pipeline.yaml` configuration migration! please see `/Users/loeffel/go/src/github.com/mindful-hq/buildkite-base` and make sure that all other repositories are migrated.
+
+## bazel version
+
+we now only support 2 different bazel versions.
+please make sure that all other repositories are migrated.
+the bazel worksapce version repositories need to use bazelversion 6.6.0 with pipline sha256 image checksum: sha256:5e8a214baa9ab294531695663df472d2200f2bb1a150693e81f70f64d24ae4ce
+the bazel module version repositories need to use bazelversion 8.6.0 with pipeline sha256 image checksum: sha256:8a769263e86729929bc1f389d3fa7e5e915c2788fe8c1fa6f2e545e4e094f23d
+
 ## affected repositories
 
 ### stage 1
 
 ```text
-/Users/loeffel/go/src/github.com/mindful-hq/base # buildkite missing
+/Users/loeffel/go/src/github.com/mindful-hq/base # DONE
 ```
 
 ### stage 2
 
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/global-base # DONE
-/Users/loeffel/go/src/github.com/mindful-hq/earth-base # DONE - ns missing
+/Users/loeffel/go/src/github.com/mindful-hq/earth-base # DONE - ns missing (lazy)
 /Users/loeffel/go/src/github.com/mindful-hq/buildkite-base # DONE
 ```
 

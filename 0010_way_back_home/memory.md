@@ -26,8 +26,10 @@ repo migration.
    (e.g. `earth-openfga-base-p@...`). In earth-openfga-base the
    `trim_gcloud_service_account` param was removed entirely - always trim now.
 5. `backend.tf`: bucket gets `-eu-1` suffix (e.g. `mindful-earth-base-terraform-dev-eu-1`)
-6. gsa module refs -> `?ref=v0.7.0` (v0.7.0 adds `-eu-1` to bucket names internally,
-   so `buckets = [...]` lists stay WITHOUT suffix). ksa module -> `?ref=v0.7.0`.
+6. gsa module refs -> `?ref=v0.9.0` (adds `-eu-1` to bucket names internally,
+   so `buckets = [...]` lists stay WITHOUT suffix). ksa module -> `?ref=v0.9.0`
+   (v0.9.0 fixes kubernetes_service_account -> _v1 deprecation). README bumped
+   the target from v0.7.0 to v0.9.0; all migrated repos re-bumped accordingly.
 7. GSA account_ids short form: `${var.gcloud_project}-<name>-${substr("service", 0, 1)}-${substr(var.env, 0, 1)}`
    (+ `-${substr("impl", 0, 1)}` for impl). Descriptions keep the full long name.
    For base repos: `earth-<svc>-base-${substr(var.env, 0, 1)}`.
@@ -63,8 +65,8 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
   ENCRYPTED_ONLY: parity with old require_ssl, services use Cloud SQL IAM
   connector which handles client certs automatically)
 - `kubernetes_namespace` deprecated -> `kubernetes_namespace_v1`
-- ksa tfmodule v0.7.0 still uses deprecated `kubernetes_service_account`
-  (warning is from the module, fix belongs to stage 4 global-tfmodule-ksa)
+- ksa tfmodule v0.9.0 fixed the `kubernetes_service_account` deprecation
+  (v0.7.0 warned); no warnings left anywhere
 - lock files get kubernetes v3.2.1 when declared `>= 2.24.0`
 
 ## network / IP layout decisions (earth-base, all envs identical)
@@ -164,3 +166,30 @@ all REGIONAL availability:
   cluster/nat/agent modules to be added by user (source: old `buildkite` repo
   deployments/modules/*)
 - `.bazelversion` 6.6.0 required (6.4.0 -> dyld "missing LC_UUID" failure)
+
+## stage 1+2 production-readiness audit (post user additions)
+
+- base: user added buildkite_base_production.tf (project services, gsa
+  buildkite-base-p, AR `buildkite-production-docker-eu-1`, agent secrets:
+  token/ssh-key/github-token + accessor grants), global_base_production.tf,
+  reworked vars.bzl (separate global/buildkite/earth project vars). SA
+  impersonated by base BUILD.bazel is `base-production@base-504915` (FULL env,
+  manually-created bootstrap SA - not module-managed, left as-is)
+- buildkite-base: user added cluster (buildkite-gke-production-eu-1, standard
+  cluster + c2d-highcpu-4 node pool, workload identity), nat
+  (buildkite-nat-production-eu), ksa (name `buildkite-base-production`
+  full-form, matches pipeline serviceAccountName), agent secrets wiring,
+  helm agent-stack-k8s v0.47.0 (namespace `buildkite`, create_namespace).
+  helm provider pinned 3.1.1. kubernetes provider was UNDECLARED -> added.
+  KSAs for other repos (global-base-production, earth-base-dev/staging/
+  production) intentionally missing - added lazily after stage 3
+- pipelines converted from EmbarkStudios/k8s#v1.3.1 (old stack) to
+  agent-stack-k8s `kubernetes` plugin format (podSpec/serviceAccountName/
+  containers, template `&bazel-container`): global-base + earth-base done;
+  buildkite-base was already new-format (user). New image digest for
+  buildkite-bazel: sha256:014c9027d239... in
+  buildkite-504915/buildkite-production-docker-eu-1. cache buckets now -eu-1
+- module refs bumped v0.7.0 -> v0.9.0 in base(5), global-base(6),
+  earth-base(45), earth-openfga-base(9 incl ksa)
+- all 9 tf dirs validate clean (no deprecation warnings anymore), fmt clean,
+  bazel build+test green in all 5 repos
