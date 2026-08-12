@@ -29,8 +29,8 @@ that requires a `build/buildkite/pipeline.yaml` configuration migration! please 
 
 we now only support 2 different bazel versions.
 please make sure that all other repositories are migrated.
-the bazel worksapce version repositories need to use bazelversion 6.6.0 with pipline sha256 image checksum: sha256:5e8a214baa9ab294531695663df472d2200f2bb1a150693e81f70f64d24ae4ce
-the bazel module version repositories need to use bazelversion 8.6.0 with pipeline sha256 image checksum: sha256:8a769263e86729929bc1f389d3fa7e5e915c2788fe8c1fa6f2e545e4e094f23d
+the bazel worksapce version repositories need to use bazelversion 6.6.0 with buildkite pipeline sha256 image checksum: sha256:5e8a214baa9ab294531695663df472d2200f2bb1a150693e81f70f64d24ae4ce
+the bazel module version repositories need to use bazelversion 8.6.0 with buildkite pipeline sha256 image checksum: sha256:8a769263e86729929bc1f389d3fa7e5e915c2788fe8c1fa6f2e545e4e094f23d
 
 ## affected repositories
 

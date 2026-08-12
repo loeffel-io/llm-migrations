@@ -8,12 +8,12 @@ repo migration.
 
 | repo | branch | state |
 |---|---|---|
-| base | chore/loeffel-io/0010 | DONE (uncommitted at time of work) - buildkite split still missing per README |
-| global-base | chore/loeffel-io/0010 | DONE, uncommitted |
-| earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production), uncommitted - NS rrdatas missing (stage 3) |
-| buildkite-base | chore/loeffel-io/0010 | base scaffold DONE (renamed from global-base copy), uncommitted; user adds cluster/agent tf next. bazel 6.6.0 (fixes dyld LC_UUID error on darwin with rules_docker/go builds) |
-| buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base |
-| earth-openfga-base | chore/loeffel-io/0010 | DONE (dev+staging+production replicated), uncommitted |
+| base | chore/loeffel-io/0010 | DONE incl buildkite split (user committed: buildkite_base_production.tf, global_base_production.tf, multi-project vars.bzl). No pipeline.yml by design (bootstrap) |
+| global-base | chore/loeffel-io/0010 | DONE incl pipeline agent-stack-k8s + v0.9.0 refs + bazel 6.6.0 |
+| earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
+| buildkite-base | chore/loeffel-io/0010 | DONE (user committed cluster/nat/ksa/helm agent-stack v0.47.0; kubernetes provider + docker_push added). Other repos' KSAs lazy after stage 3 |
+| buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
+| earth-openfga-base | chore/loeffel-io/0010 | DONE (all envs, sizing, v0.9.0, pipeline agent-stack-k8s, bazel 6.6.0) - stage 3 template |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -45,7 +45,32 @@ repo migration.
 11. Lock upgrade: `terraform init -upgrade -backend=false` (new backend buckets do
     not exist yet, so -backend=false; user runs the real `td|ts|tp -- init -upgrade` later).
     Then `terraform validate` + `terraform fmt -check`. `rm -rf .terraform` afterwards.
-12. `bazel build //...` && `bazel test //...` must pass. NEVER apply/destroy. NEVER commit unless asked.
+12. `build/buildkite/pipeline.yml` -> agent-stack-k8s format (see below),
+    cache buckets `-eu-1`, new image digest, KSA serviceAccountName per env
+13. `.bazelversion` -> 6.6.0 (WORKSPACE repos) / 8.6.0 (MODULE.bazel repos)
+14. `bazel build //...` && `bazel test //...` must pass. NEVER apply/destroy. NEVER commit unless asked.
+
+### pipeline.yml agent-stack-k8s template (canonical example: buildkite-base or earth-base)
+
+```yaml
+_templates:
+  - &init . ${HOME}/init.sh
+  - &bazel-container
+    name: "container-0"
+    image: "europe-west3-docker.pkg.dev/buildkite-504915/buildkite-production-docker-eu-1/buildkite-bazel@sha256:014c9027d239a4e4de7e5d4354f3fd020c2b203dc36838d6999808711277455b"
+    resources: {requests: {cpu: "1", memory: "2Gi"}, limits: {cpu: "1.75", memory: "3Gi"}}
+  - &k8s-agent-stack-<env>
+    plugins:
+      - kubernetes:
+          podSpec:
+            serviceAccountName: "<repo>-<env>"   # KSA name, full env form
+            containers: [*bazel-container]
+steps:  # step: `!!merge <<: *k8s-agent-stack-<env>` + label + command list
+```
+Groups: Global (gazelle_fix_diff+test+build) -> Build (tf init+plan) ->
+Deployment dev/staging `if: build.branch == "main"`, production
+`if: build.tag != null`. Old format to replace: EmbarkStudios/k8s#v1.3.1 with
+secret-name/mount-secret keys.
 
 ## cross-repo references that could not be migrated yet
 
@@ -152,19 +177,21 @@ all REGIONAL availability:
   (+ docker_registry var), backend `mindful-buildkite-base-terraform-production-eu-1`,
   gazelle prefix, removed stray `README 2.md`
 - WORKSPACE: restored rules_pkg/rules_docker/container_pulls from old base repo
-  (buildkite_agent 3.61.0, bazel 8.6.0, bazelisk 1.19.0) - NO renovate pull
-  (renovate removed in new buildkite-504915 project)
+  (buildkite_agent 3.61.0, bazel image 6.6.0 digest 5e8a214..., bazelisk 1.19.0)
+  - NO renovate pull (renovate removed in new buildkite-504915 project)
 - container pushes -> `buildkite-504915/buildkite-production-docker-eu-1/...`
-- pipeline.yml image still points at OLD digest in new registry path, marked:
-  `# 0010_way_back_home: old digest - update after first buildkite-bazel push`
-- pipeline service account: `buildkite-base-p`; remote cache bucket
-  `mindful-buildkite-base-bazel-production-eu-1`
+- pipeline.yml now uses NEW buildkite-bazel digest sha256:014c9027d239...
+  (user pushed); serviceAccountName `buildkite-base-production` (KSA full-form);
+  remote cache bucket `mindful-buildkite-base-bazel-production-eu-1`
 - docker_push restored: deployments/production/docker_push.sh + sh_binary
   `//deployments/production:docker_push` (agent + bazel pushes only, renovate
   dropped; impersonates `buildkite-base-p@buildkite-504915...`)
-- production tf currently only providers (main/vars/versions/backend);
-  cluster/nat/agent modules to be added by user (source: old `buildkite` repo
-  deployments/modules/*)
+- production tf complete: standard GKE cluster buildkite-gke-production-eu-1
+  (c2d-highcpu-4 pool, workload identity, gke backup addon), nat
+  buildkite-nat-production-eu, network, ksa module (fake gsa object referencing
+  base-repo-created `buildkite-base-p` GSA), agent secrets from secret manager
+  (created in base repo), helm_release agent-stack-k8s 0.47.0 ns `buildkite`
+- helm provider pinned exactly 3.1.1 (hashicorp/terraform-provider-helm#1798)
 - `.bazelversion` 6.6.0 required (6.4.0 -> dyld "missing LC_UUID" failure)
 
 ## stage 1+2 production-readiness audit (post user additions)
@@ -193,3 +220,24 @@ all REGIONAL availability:
   earth-base(45), earth-openfga-base(9 incl ksa)
 - all 9 tf dirs validate clean (no deprecation warnings anymore), fmt clean,
   bazel build+test green in all 5 repos
+
+## bazel version policy (README `## bazel version`)
+
+- WORKSPACE repos: `.bazelversion` 6.6.0; bazel base image digest
+  sha256:5e8a214baa9ab294531695663df472d2200f2bb1a150693e81f70f64d24ae4ce
+- MODULE.bazel repos: `.bazelversion` 8.6.0; image digest
+  sha256:8a769263e86729929bc1f389d3fa7e5e915c2788fe8c1fa6f2e545e4e094f23d
+- all stage 1+2 repos (+ earth-openfga-base) are WORKSPACE repos -> 6.6.0
+  applied (global-base/earth-base/earth-openfga-base were on 6.4.0)
+- buildkite-base WORKSPACE container_pull "bazel" pins 5e8a214 (6.6.0),
+  buildkite-bazel image push tag 6.6.0; both digests kept as comment above
+  the pull for the future module-repo image
+- base repo has NO pipeline.yml by design (manual bootstrap, chicken-egg)
+- earth-openfga-base pipeline migrated to agent-stack-k8s format too
+  (KSAs earth-openfga-base-dev/staging/production, cache buckets
+  mindful-earth-openfga-base-bazel-<env>-eu-1, new image digest 014c9027...)
+- pipeline cache bucket names = the gsa module `buckets` entry + `-eu-1`
+  (module appends suffix); openfga pipeline buckets come from earth-base's
+  earth_openfga_base.tf (`-openfga-base-bazel-<env>`), NOT the service bucket
+- leftover EmbarkStudios URL in buildkite-base main.tf is a docs comment
+  for the agent secret workaround - intentional
