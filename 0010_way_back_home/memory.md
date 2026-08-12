@@ -13,7 +13,7 @@ repo migration.
 | earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
 | buildkite-base | chore/loeffel-io/0010 | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
-| earth-openfga-base | chore/loeffel-io/0010 | DONE (all envs, sizing, v0.9.0, pipeline agent-stack-k8s, bazel 6.6.0) - stage 3 template |
+| earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE (repo + buildkite-base KSAs + earth-base WI grants). Reminder: manual buildkite UI cluster switch |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -154,7 +154,9 @@ all REGIONAL availability:
 - root BUILD.bazel ls_lint references `//deployments/<env>:files` - remove/add
   entries when an env dir is emptied/created (earth-base production was empty for
   a while and broke `bazel build //...`)
-- WORKSPACE rules pins differ (v0.19.9 vs v0.19.10) - left alone, tests pass
+- WORKSPACE rules pin: ALL workspace repos must use
+  `com_github_mindful_hq_rules` tag v0.19.11 (required for the stage-3
+  buildkite/ksa flow); bumped everywhere in stage 1+2
 - old projects: earth-dev-382708, earth-staging-382708, earth-production (no id),
   global-382710, buildkite-382710; base-504915 is the NEW base (from buildkite-382710)
 - buildkite repo still has old vars (us-central1, 382710) + all the tf files that
@@ -281,3 +283,20 @@ all REGIONAL availability:
   the new cluster agent in the buildkite UI (pipeline cluster setting).
   no code change needed. done for global-base; required for EVERY migrated repo
 - helm release keeps `# tags = ["queue=kubernetes"]` commented out - leave it
+
+## stage 3 per-repo checklist (established with earth-openfga-base)
+
+1. repo itself: full recipe (was already done for openfga during stage 2 work)
+2. buildkite-base: add `earth_<svc>_base_{dev,staging,production}.tf` KSA files
+   (fake-gsa pattern, locals from locals.tf, ns `buildkite`, KSA name full-form
+   `earth-<svc>-base-<env>` == pipeline serviceAccountName, GSA email short
+   `earth-<svc>-base-<e>@earth-<env>-504915`); add files to BUILD.bazel
+3. earth-base: append `google_service_account_iam_member` grant
+   (`roles/iam.serviceAccountAdmin` for
+   `buildkite-base-p@buildkite-504915.iam.gserviceaccount.com`, SA-level,
+   0010 comment) to each env's `earth_<svc>_base.tf` - earth-base has no
+   buildkite vars, member is inline
+4. remind user: manual buildkite UI cluster switch for the pipeline
+5. apply order: earth-base (grants) -> buildkite-base (KSAs) -> repo pipeline
+- done for openfga: buildkite-base earth_openfga_base_{dev,staging,production}.tf,
+  earth-base earth_openfga_base.tf grants (all envs), all validate/bazel green

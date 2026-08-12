@@ -57,7 +57,7 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production lightweight-2 regional; sql dev + staging db-small regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production db-lightweight-2 regional; sql dev + staging db-small regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 regional; sql dev + staging db-micro regional
@@ -67,6 +67,9 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 regional; sql dev + staging db-micro regional
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base
 ```
+
+`db-lightweight-2` must be `db-custom-2-3840` tier value to work.
+`db-standard-1` must be `db-custom-1-3840` tier value to work.
 
 ### stage 4
 
