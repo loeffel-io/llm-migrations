@@ -11,7 +11,7 @@ repo migration.
 | base | chore/loeffel-io/0010 | DONE incl buildkite split (user committed: buildkite_base_production.tf, global_base_production.tf, multi-project vars.bzl). No pipeline.yml by design (bootstrap) |
 | global-base | chore/loeffel-io/0010 | DONE incl pipeline agent-stack-k8s + v0.9.0 refs + bazel 6.6.0 |
 | earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
-| buildkite-base | chore/loeffel-io/0010 | DONE (user committed cluster/nat/ksa/helm agent-stack v0.47.0; kubernetes provider + docker_push added). Other repos' KSAs lazy after stage 3 |
+| buildkite-base | chore/loeffel-io/0010 | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
 | earth-openfga-base | chore/loeffel-io/0010 | DONE (all envs, sizing, v0.9.0, pipeline agent-stack-k8s, bazel 6.6.0) - stage 3 template |
 | everything else | - | not started |
@@ -209,7 +209,16 @@ all REGIONAL availability:
   helm agent-stack-k8s v0.47.0 (namespace `buildkite`, create_namespace).
   helm provider pinned 3.1.1. kubernetes provider was UNDECLARED -> added.
   KSAs for other repos (global-base-production, earth-base-dev/staging/
-  production) intentionally missing - added lazily after stage 3
+  production) added: earth_base_{dev,staging,production}.tf +
+  global_base_production.tf, ksa module v0.9.0 fake-gsa pattern, KSA names
+  full-form (match pipeline serviceAccountName), GSA emails short-form
+  (earth-base-d/s/p@earth-<env>-504915, global-base-p@global-504915),
+  foreign project ids centralized in deployments/production/locals.tf
+  (gcloud_global_project/_production_project_id, gcloud_earth_project/
+  _dev/_staging/_production_project_id) - locals not vars, because the shared
+  terraform_binary only passes the 5 standard TF_VARs. locals.tf listed in
+  BUILD.bazel terraform_files. Future stage-3 repo KSAs (earth-openfga-base-*
+  etc.) go in new per-repo tf files reusing these locals - still lazy
 - pipelines converted from EmbarkStudios/k8s#v1.3.1 (old stack) to
   agent-stack-k8s `kubernetes` plugin format (podSpec/serviceAccountName/
   containers, template `&bazel-container`): global-base + earth-base done;
@@ -241,3 +250,34 @@ all REGIONAL availability:
   earth_openfga_base.tf (`-openfga-base-bazel-<env>`), NOT the service bucket
 - leftover EmbarkStudios URL in buildkite-base main.tf is a docs comment
   for the agent secret workaround - intentional
+
+## cross-project workload identity grants (bootstrap ordering!)
+
+- ksa module writes a `roles/iam.workloadIdentityUser` binding ONTO the target
+  GSA -> the applying SA needs get/setIamPolicy on that foreign GSA
+- fix: base repo (owner of earth-base-d/s/p + global-base-p GSAs) grants
+  SA-level `roles/iam.serviceAccountAdmin` on each of those GSAs to
+  `buildkite-base-p@buildkite-504915` (in base/deployments/production/
+  earth_base_{dev,staging,production}.tf + global_base_production.tf,
+  marked with 0010 comment)
+- apply order on fresh bootstrap: base (creates GSAs + grants) ->
+  buildkite-base (creates KSAs + WI bindings) -> global-base/earth-base
+  pipelines can then run in the cluster
+- same pattern will be needed for every stage-3 earth-*-base repo KSA:
+  the repo that owns the GSA adds the serviceAccountAdmin grant for
+  buildkite-base-p; the KSA file goes in buildkite-base
+
+## buildkite cluster assignment (manual UI step per pipeline!)
+
+- symptom: job runs on pod `buildkite-agent-<rs-hash>-<suffix>` (Deployment
+  pattern = OLD chart-based agent) and fails cloning
+  `buildkite-plugins/kubernetes-buildkite-plugin` via https (the `kubernetes`
+  plugin is VIRTUAL - only the agent-stack-k8s controller understands it;
+  classic agents try to git-clone it as a real plugin and die)
+- root cause: the buildkite PIPELINE was still assigned to the old cluster/
+  agents in the buildkite UI. NOT a queue problem - we intentionally use the
+  DEFAULT queue everywhere (a queue-tag fix was tried and reverted)
+- fix: after migrating a repo's pipeline.yml, MANUALLY switch the pipeline to
+  the new cluster agent in the buildkite UI (pipeline cluster setting).
+  no code change needed. done for global-base; required for EVERY migrated repo
+- helm release keeps `# tags = ["queue=kubernetes"]` commented out - leave it

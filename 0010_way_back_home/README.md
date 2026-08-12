@@ -24,6 +24,7 @@ i will create completely new gcp projects for the new resources.
 
 we migrated the build pipelines from https://github.com/buildkite/charts and https://github.com/EmbarkStudios/k8s-buildkite-plugin to https://github.com/buildkite/agent-stack-k8s.
 that requires a `build/buildkite/pipeline.yaml` configuration migration! please see `/Users/loeffel/go/src/github.com/mindful-hq/buildkite-base` and make sure that all other repositories are migrated.
+IMPORTANT: after the pipeline migration of a repository, the buildkite pipeline must be switched MANUALLY to the new cluster agent in the buildkite ui (cluster setting on the pipeline) - otherwise the old chart-based agents pick up the job and fail with a `kubernetes-buildkite-plugin` clone error (the `kubernetes` plugin is virtual and only understood by agent-stack-k8s).
 
 ## bazel version
 
@@ -168,6 +169,11 @@ module "gsa_earth_authentication_service_dev_impl" {
     gcloud_service_account_description = "${var.gcloud_project}-authentication-service-${var.env}-impl"
     gcloud_project_id                  = var.gcloud_project_id
 ```
+
+## we go production
+
+its very important that while the migration staging is based on dev and then production is based on staging.
+never did the production setup and we need to make sure that production is working. production will be deployed with tags. i think i already prepared that at some places.
 
 ## terraform upgrades
 
