@@ -33,7 +33,7 @@ i will create completely new gcp projects for the new resources.
 ```
 /Users/loeffel/go/src/github.com/mindful-hq/global-base # DONE
 /Users/loeffel/go/src/github.com/mindful-hq/earth-base # DONE - ns missing
-/Users/loeffel/go/src/github.com/mindful-hq/buildkite-base # missing
+/Users/loeffel/go/src/github.com/mindful-hq/buildkite-base # DONE
 ```
 
 ### stage 3
@@ -163,7 +163,7 @@ please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, 
 
 - terraform google and google beta min version: v7.43.0
 - tflint google: v0.39.0
-- global-tfmodule-ksa: v0.7.0
-- global-tfmodule-gsa: v0.7.0 # introduces gsa bucket names with -eu-1 suffix
+- global-tfmodule-ksa: v0.9.0
+- global-tfmodule-gsa: v0.9.0 # introduces gsa bucket names with -eu-1 suffix
 
 you are not allowed to do any apply or destroy.

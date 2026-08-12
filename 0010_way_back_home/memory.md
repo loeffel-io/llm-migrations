@@ -11,7 +11,8 @@ repo migration.
 | base | chore/loeffel-io/0010 | DONE (uncommitted at time of work) - buildkite split still missing per README |
 | global-base | chore/loeffel-io/0010 | DONE, uncommitted |
 | earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production), uncommitted - NS rrdatas missing (stage 3) |
-| buildkite / buildkite-base | - | NOT STARTED ("we do buildkite later"); repo dir is `buildkite`, README calls it `buildkite-base` |
+| buildkite-base | chore/loeffel-io/0010 | base scaffold DONE (renamed from global-base copy), uncommitted; user adds cluster/agent tf next. bazel 6.6.0 (fixes dyld LC_UUID error on darwin with rules_docker/go builds) |
+| buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base |
 | earth-openfga-base | chore/loeffel-io/0010 | DONE (dev+staging+production replicated), uncommitted |
 | everything else | - | not started |
 
@@ -142,3 +143,24 @@ all REGIONAL availability:
   (`-target=google_gke_hub_feature_membership.servicemesh_member` first, or re-run)
 - istio configmap `istio-asm-managed` in ns `istio-system`; ext-authz on
   `authorization.local:4000`
+
+## buildkite-base specifics
+
+- created from a copy of global-base; renamed: vars.bzl project `buildkite`
+  (+ docker_registry var), backend `mindful-buildkite-base-terraform-production-eu-1`,
+  gazelle prefix, removed stray `README 2.md`
+- WORKSPACE: restored rules_pkg/rules_docker/container_pulls from old base repo
+  (buildkite_agent 3.61.0, bazel 8.6.0, bazelisk 1.19.0) - NO renovate pull
+  (renovate removed in new buildkite-504915 project)
+- container pushes -> `buildkite-504915/buildkite-production-docker-eu-1/...`
+- pipeline.yml image still points at OLD digest in new registry path, marked:
+  `# 0010_way_back_home: old digest - update after first buildkite-bazel push`
+- pipeline service account: `buildkite-base-p`; remote cache bucket
+  `mindful-buildkite-base-bazel-production-eu-1`
+- docker_push restored: deployments/production/docker_push.sh + sh_binary
+  `//deployments/production:docker_push` (agent + bazel pushes only, renovate
+  dropped; impersonates `buildkite-base-p@buildkite-504915...`)
+- production tf currently only providers (main/vars/versions/backend);
+  cluster/nat/agent modules to be added by user (source: old `buildkite` repo
+  deployments/modules/*)
+- `.bazelversion` 6.6.0 required (6.4.0 -> dyld "missing LC_UUID" failure)
