@@ -19,7 +19,15 @@ repo migration.
 | earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
 | earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE incl .bazelrc (pushed) + 63-char bucket fix (uncommitted). earth-base earth_auth_base.tf removed (uncommitted there) |
 | earth-content-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, .bazelrc; prod db-custom-1-3840; bucket lengths ok). Needs: user apply + UI cluster switch |
-| everything else | - | not started |
+| earth-resourcemanager-base | chore/loeffel-io/0010 | STAGE 3 DONE (prod db-custom-1-3840; proto bucket 63-char substr fix) |
+| earth-email-base | chore/loeffel-io/0010 | STAGE 3 DONE (2 services: email+emailmailgun; MAILGUN provider wgebis/mailgun 0.7.7 must stay in versions.tf; prod db-g1-small; internal-proto bucket 63-char fix) |
+| earth-billing-base | chore/loeffel-io/0010 | STAGE 3 DONE (4 units: billing+billingrevenuecat+billingstripe+billingstripe-config; billingstripe has redis -eu-1; prod db-custom-1-3840; revenuecat-proto + billing-internal-proto bucket 63-char fixes) |
+| earth-storage-base | chore/loeffel-io/0010 | STAGE 3 DONE (prod db-custom-1-3840; RAW google_storage_bucket data buckets -> -eu-1 + location US->EU, missed initially) |
+| earth-website-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto; single service) |
+| earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented) |
+| earth-hub-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto) |
+| earth-app-base | chore/loeffel-io/0010 | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
+| everything else | - | STAGE 3 COMPLETE - all 14 base repos done. next: stage 4 |
 
 ## the standard migration recipe (per repo)
 
@@ -334,6 +342,9 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
      `authentication` (14 chars) is the longest service name - most at risk
    - deprecations: kubernetes_namespace/secret -> _v1; data kubernetes_service
      -> _v1 (only repos with ACTIVE monitoring SLOs, e.g. user-base)
+   - RAW `google_storage_bucket` RESOURCES (outside gsa module): need manual
+     `-eu-1` suffix AND `location` US -> EU (storage-base data bucket was the
+     only one in stage 3; module-created buckets get both automatically)
    - remove `cluster_required = False` from production BUILD.bazel
    - pipeline.yml: generate from earth-authorization-base pipeline via
      name replace
@@ -449,10 +460,44 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
   (7 repos + earth-base by user), .bazelrc GITHUB_TOKEN (5 stage-3 repos)
 - earth-authentication-base has UNCOMMITTED changes on top of the pushed
   .bazelrc commit: the whole 0010 migration + 63-char bucket fix
-- stage 3 remaining: website, language, hub, resourcemanager,
-  email, billing, app, storage (resourcemanager/email/billing/
-  storage have sql; website/language/hub/app do not)
+- stage 3 COMPLETE (all 14 repos)
 - README stage-3 lines now carry per-repo runtime data from user: mysql ips
   (all envs 172.17.0.x - dev/staging/prod same ip, per-service distinct)
   and ns zone letters - keep syncing NS letters into earth-base subdomains
   when user adds them
+
+## multi-service repo notes (email/billing) + batch gotchas
+
+- earth-email-base: services email + emailmailgun; emailmailgun uses the
+  `wgebis/mailgun` 0.7.7 provider -> NEVER drop it from versions.tf (overwriting
+  versions.tf wholesale broke init; always MERGE provider blocks)
+- earth-billing-base: units billing / billingrevenuecat (+ google-play RTDN
+  gsa) / billingstripe (has redis cluster -eu-1) / billingstripe-config
+  (secrets only, gsa has terraform bucket too)
+- 63-char bucket substr fixes applied: resourcemanager-service-proto (65),
+  email-service-internal-proto (64), billing-service-internal-proto (66),
+  billingrevenuecat-service-proto (67); billingstripe-service-proto exactly 63 ok
+- storage/email/billing had ssl_mode ENCRYPTED_ONLY pre-existing in dev
+  (kept? NO - they were require_ssl->ENCRYPTED_ONLY already on main; only
+  resourcemanager had require_ssl=true -> TRUSTED_CLIENT_CERTIFICATE_REQUIRED)
+- shell heredoc gotcha: this bash strips `\$` inside single-quoted heredocs -
+  build python regexes with re.escape("${var...}") instead of hand-escaping
+- batch glob gotcha: `earth-*-base` globs match NOT-YET-MIGRATED repos
+  (earth-language-base got touched, reverted via git checkout) - always
+  list repos explicitly
+
+## no-sql repo batch notes (website/language/hub/app)
+
+- all four: no sql, no redis; tls gateway certs + kubernetes -> keep tls +
+  kubernetes + google-beta in versions.tf (google-beta needed: firebase apps
+  in app-base use it; hub/website/language use certmap/beta features)
+- earth-app-base extra file earth_app.tf (firebase apple+android apps):
+  dev = per-dev bundle ids com.mindful.dev.appx.<dev>, staging =
+  com.mindful.staging.appx, production replicated -> com.mindful.appx with
+  STAGING SHA1/SHA256 HASHES (unknown production signing certs - USER TODO);
+  old production file was just a TODO comment. app-base dev also has an
+  uncommitted-by-user commented google-play-developer-notifications gsa block
+- language proto readers (hub/app/website) commented with stage-3 markers -
+  can be uncommented as soon as this batch is APPLIED (owning repos now exist
+  in code; grants activate after their earth-base/buildkite-base applies)
+- pipeline serviceAccountNames: earth-<svc>-base-<env> as usual
