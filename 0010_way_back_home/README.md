@@ -58,14 +58,14 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small zonal; sql dev + staging db-micro zonal # DONE mysql ips: dev: 172.17.0.8; staging: 172.17.0.8; production: 172.17.0.8; ns zone: dev: a; staging: d; production: e
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base # DONE; ns zone: dev: a; staging: c; production: e
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small zonal; sql dev + staging db-micro zonal
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.
