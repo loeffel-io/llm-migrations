@@ -52,24 +52,30 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 ### stage 3
 
 ```text
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production db-lightweight-2 zonal; sql dev + staging db-small zonal # DONE
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base: sql production db-small zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base: sql production db-small regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production db-lightweight-2 regional; sql dev + staging db-small regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small zonal; sql dev + staging db-micro zonal
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 regional; sql dev + staging db-micro regional
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 regional; sql dev + staging db-micro regional
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small zonal; sql dev + staging db-micro zonal
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.
 `db-standard-1` must be `db-custom-1-3840` tier value to work.
+
+every stage 3 repository needs three additional cross-repo changes:
+
+1. buildkite-base: `earth_<svc>_base_{dev,staging,production}.tf` KSA files (namespace `buildkite`, KSA name `earth-<svc>-base-<env>` = pipeline serviceAccountName, gsa email short form `earth-<svc>-base-<e>@earth-<env>-504915`, locals from locals.tf) + BUILD.bazel entries
+2. earth-base: `roles/iam.serviceAccountAdmin` grant on the repo gsa for `buildkite-base-p@buildkite-504915.iam.gserviceaccount.com` in each env's `earth_<svc>_base.tf` (no comments)
+3. apply order: earth-base (grants) -> buildkite-base (KSAs) -> switch pipeline cluster in buildkite ui
 
 ### stage 4
 
@@ -186,5 +192,6 @@ please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, 
 - tflint google: v0.39.0
 - global-tfmodule-ksa: v0.9.0
 - global-tfmodule-gsa: v0.9.0 # introduces gsa bucket names with -eu-1 suffix
+- rules (com_github_mindful_hq_rules): v0.19.11 # required for bazel workspace repositories
 
 you are not allowed to do any apply or destroy.

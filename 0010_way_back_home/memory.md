@@ -13,7 +13,7 @@ repo migration.
 | earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
 | buildkite-base | chore/loeffel-io/0010 | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
-| earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE (repo + buildkite-base KSAs + earth-base WI grants). Reminder: manual buildkite UI cluster switch |
+| earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE + applied by user (repo, buildkite-base KSAs, earth-base WI grants, UI cluster switch, rules v0.19.11) |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -135,16 +135,16 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
   `earth-openfga-service` db
 - monitoring SLO/alert blocks are commented out in the tf (pre-existing)
 - SQL sizing applied per README stage-3 table: dev+staging `db-g1-small`
-  REGIONAL, production `db-lightweight-2` REGIONAL (tier name mapping:
-  db-micro=db-f1-micro, db-small=db-g1-small, db-standard1=db-n1-standard-1,
-  lightweight-2=db-lightweight-2).
+  REGIONAL, production `db-custom-2-3840` REGIONAL.
 
 ## db sizing table from README (stage 3 base repos, "sql <prod>; <dev+staging>")
 
-all REGIONAL availability:
-- content/billing/user/storage/resourcemanager: prod db-standard1; dev+staging db-micro
-- iam/email/authorization: prod db-small; dev+staging db-micro
-- openfga: prod lightweight-2; dev+staging db-small (APPLIED)
+all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
+`db-custom-2-3840`, db-standard-1 -> `db-custom-1-3840`; db-micro ->
+`db-f1-micro`, db-small -> `db-g1-small` (real tier names, no mapping needed)
+- content/billing/user/storage/resourcemanager: prod db-custom-1-3840; dev+staging db-f1-micro
+- iam/email/authorization: prod db-g1-small; dev+staging db-f1-micro
+- openfga: prod db-custom-2-3840; dev+staging db-g1-small (APPLIED, user fixed prod tier)
 - website/language/hub/app/authentication: no sql
 
 ## gotchas / environment notes
@@ -261,7 +261,11 @@ all REGIONAL availability:
   SA-level `roles/iam.serviceAccountAdmin` on each of those GSAs to
   `buildkite-base-p@buildkite-504915` (in base/deployments/production/
   earth_base_{dev,staging,production}.tf + global_base_production.tf,
-  marked with 0010 comment)
+  comment-free per style rule)
+- the grant repo must be APPLIED before buildkite-base, otherwise the ksa
+  module 403s on `iam.serviceAccounts.getIamPolicy` for the foreign GSA -
+  the openfga 403s were exactly this (earth-base grants not yet applied),
+  NOT a missing-grant-in-base problem; base does NOT need every GSA
 - apply order on fresh bootstrap: base (creates GSAs + grants) ->
   buildkite-base (creates KSAs + WI bindings) -> global-base/earth-base
   pipelines can then run in the cluster
@@ -294,9 +298,33 @@ all REGIONAL availability:
 3. earth-base: append `google_service_account_iam_member` grant
    (`roles/iam.serviceAccountAdmin` for
    `buildkite-base-p@buildkite-504915.iam.gserviceaccount.com`, SA-level,
-   0010 comment) to each env's `earth_<svc>_base.tf` - earth-base has no
-   buildkite vars, member is inline
+   NO comments - user wants these grant resources comment-free) to each
+   env's `earth_<svc>_base.tf` - earth-base has no buildkite vars, member inline
 4. remind user: manual buildkite UI cluster switch for the pipeline
 5. apply order: earth-base (grants) -> buildkite-base (KSAs) -> repo pipeline
 - done for openfga: buildkite-base earth_openfga_base_{dev,staging,production}.tf,
   earth-base earth_openfga_base.tf grants (all envs), all validate/bazel green
+
+## we go production (README section)
+
+- env promotion model: staging config is based on dev, production is based on
+  staging - keep that direction when copying envs
+- production has NEVER been deployed before this migration - expect first-run
+  issues (missing APIs, bootstrap ordering, unpushed images)
+- production deploys trigger on GIT TAGS (`if: build.tag != null` in
+  pipeline.yml deployment-production groups - already in all migrated
+  pipelines); dev+staging deploy on branch main
+- rules repo v0.19.11 mandatory for WORKSPACE repos (required for the
+  stage-3 buildkite/ksa flow) - bumped in all stage 1+2 repos, keep for
+  every stage-3+ repo
+
+## style: no explanatory comments on WI grant resources
+
+- user removed/renamed all `# 0010_way_back_home: allows...` comments on the
+  serviceAccountAdmin grant resources - DO NOT add explanatory comments to
+  these (or similar) resources going forward; resource names are descriptive
+  enough. The `stage 3 - uncomment` markers on commented-out RESOURCES in
+  global-base remain (they track work, not explanation)
+- user also removed the agents/queue block from earth-base pipeline (default
+  queue is used everywhere); removed leftover queue block from
+  earth-openfga-base pipeline too
