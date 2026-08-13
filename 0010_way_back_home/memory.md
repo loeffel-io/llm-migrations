@@ -18,6 +18,7 @@ repo migration.
 | earth-iam-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
 | earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
 | earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE incl .bazelrc (pushed) + 63-char bucket fix (uncommitted). earth-base earth_auth_base.tf removed (uncommitted there) |
+| earth-content-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, .bazelrc; prod db-custom-1-3840; bucket lengths ok). Needs: user apply + UI cluster switch |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -448,8 +449,8 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
   (7 repos + earth-base by user), .bazelrc GITHUB_TOKEN (5 stage-3 repos)
 - earth-authentication-base has UNCOMMITTED changes on top of the pushed
   .bazelrc commit: the whole 0010 migration + 63-char bucket fix
-- stage 3 remaining: website, content, language, hub, resourcemanager,
-  email, billing, app, storage (content/resourcemanager/email/billing/
+- stage 3 remaining: website, language, hub, resourcemanager,
+  email, billing, app, storage (resourcemanager/email/billing/
   storage have sql; website/language/hub/app do not)
 - README stage-3 lines now carry per-repo runtime data from user: mysql ips
   (all envs 172.17.0.x - dev/staging/prod same ip, per-service distinct)
