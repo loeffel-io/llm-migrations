@@ -100,9 +100,13 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - earth-base `subdomains` NS record rrdatas: real values only known after
   the stage-3 child zone exists (gcloud assigns ns-cloud-<letter>{1..4} set).
   UPDATED per README so far: user (dev c/staging d/prod c), authorization
-  (a/d/a), iam (a/d/e), authentication (a/c/e), content (c/a/e),
-  resourcemanager (c/a/c), email (d/d/d), emailmailgun (a/a/d),
-  storage (c/d/a), language (a/d/c). Openfga has no zone (no dns in that
+  (a/d/e), iam (a/d/e), authentication (a/c/e), content (c/a/e), user prod now a,
+  resourcemanager (c/a/c), email (d/d/a), emailmailgun (a/a/e),
+  storage (c/d/a), language (a/d/c). NOTE: production zones were RECREATED
+  after the apex-domain fix -> new letters for user (prod a), authorization
+  (prod e), email (prod a), emailmailgun (prod e); expect same for other
+  already-applied production zones (iam/authentication/content/... may
+  change too when user re-applies). Openfga has no zone (no dns in that
   repo). Still placeholder: billing/billingrevenuecat/billingstripe, hub,
   app, website - sync when user adds letters to README
 
