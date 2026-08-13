@@ -57,11 +57,15 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base # DONE; ns zone: dev: a; staging: c; production: d
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.14; staging: 172.17.0.14; production: 172.17.0.14; ns zone: dev: c; staging: a; production: c
 /Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.16; staging: 172.17.0.16; production: 172.17.0.16; ns zone: dev: c; staging: a; production: a
-
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.18; staging: 172.17.0.18; production: 172.17.0.18; email ns zone: dev: d; staging: d; production: a; emailmailgun ns zone: dev: a; staging: a; production: e
+
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: x; staging: x; production: x; ns zone: dev: x; staging: x; production: x
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.22; staging: 172.17.0.22; production: 172.17.0.22; ns zone: dev: c; staging: d; production: a
-/Users/loeffel/go/src/github.com/mindful-hq/earth-language-base: ns zone: dev: a; staging: d; production: c
+
+# NS updated
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.22; staging: 172.17.0.22; production: 172.17.0.22; ns zone: dev: c; staging: d; production: c
+/Users/loeffel/go/src/github.com/mindful-hq/earth-language-base: ns zone: dev: a; staging: d; production: d
+# NS updated end
+
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
