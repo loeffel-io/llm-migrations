@@ -17,7 +17,7 @@ repo migration.
 | earth-authorization-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
 | earth-iam-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
 | earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
-| earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE (legacy earth_auth_* files git-rm'd, authentication files migrated, production replicated, proto tf, KSAs, grants; no sql). Needs: user apply + UI cluster switch |
+| earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE incl .bazelrc (pushed) + 63-char bucket fix (uncommitted). earth-base earth_auth_base.tf removed (uncommitted there) |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -51,6 +51,11 @@ repo migration.
     Then `terraform validate` + `terraform fmt -check`. `rm -rf .terraform` afterwards.
 12. `build/buildkite/pipeline.yml` -> agent-stack-k8s format (see below),
     cache buckets `-eu-1`, new image digest, KSA serviceAccountName per env
+12b. `.bazelrc` in repo root (every bazel WORKSPACE repo):
+     `build --action_env=GITHUB_TOKEN` + `test --test_env=GITHUB_TOKEN`
+     (added+committed+pushed for openfga/user/authorization/iam/authentication;
+     still missing in base/global-base/earth-base/buildkite-base unless user
+     added them)
 13. `.bazelversion` -> 6.6.0 (WORKSPACE repos) / 8.6.0 (MODULE.bazel repos)
 14. `bazel build //...` && `bazel test //...` must pass. NEVER apply/destroy. NEVER commit unless asked.
 
@@ -318,8 +323,14 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
    - proto tf gotchas: stale `_staging` module NAME inside production file
      (authorization, iam, user all had it), AR repo `-eu-1`, foreign
      service reader grants (hub/app/...) -> comment with stage-3 marker until
-     owning repo migrated, bucket suffix bugs (user internal-proto had
-     substr(env,0,1) on bucket)
+     owning repo migrated
+   - GCS BUCKET NAME 63-CHAR LIMIT: module appends `-eu-1`, so check
+     `len("mindful-<project>-<name>-bazel-<env>") + 5 <= 63`. If over, use
+     `${substr(var.env, 0, 1)}` for THAT bucket only with comment
+     `# 63 char bucket name limit` (accepted inconsistency, no big migration).
+     Hit: authentication-service-proto production (64). Exactly 63 (ok):
+     user-service-internal-proto, authorization-service-proto production.
+     `authentication` (14 chars) is the longest service name - most at risk
    - deprecations: kubernetes_namespace/secret -> _v1; data kubernetes_service
      -> _v1 (only repos with ACTIVE monitoring SLOs, e.g. user-base)
    - remove `cluster_required = False` from production BUILD.bazel
@@ -415,8 +426,8 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
 - rename branch kept BOTH earth_auth_* (legacy) and earth_authentication_*
   files; legacy auth files git-rm'd for the new projects (new projects get
   authentication-only resources; earth-base subdomains map only delegates
-  `authentication`); earth-base still has legacy earth_auth_base.tf - user's
-  cleanup call, untouched
+  `authentication`); earth-base legacy earth_auth_base.tf files git-rm'd
+  (all envs + BUILD entries, uncommitted in earth-base)
 - terraform.bzl SA renamed earth-auth-base-<env> ->
   earth-authentication-base-<e>; backend buckets renamed auth ->
   authentication (+-eu-1); pipeline generated with
@@ -425,3 +436,22 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
   certs, dns zone authentication.<env>.mindful.com; proto tf had hub+app
   reader grants -> commented with stage-3 markers; authentication GSA
   account_ids were already short-form (from the rename branch)
+
+## session addendum (latest)
+
+- earth-base uncommitted work now includes: git-rm earth_auth_base.tf (3 envs
+  + BUILD entries), NS letters for user/authorization/iam, WI grants for
+  openfga/authorization/iam/user/authentication KSAs
+- buildkite-base uncommitted: KSA files for authorization/iam/user/
+  authentication (+ BUILD entries)
+- committed+pushed so far on chore/loeffel-io/0010: rules v0.19.14 bump
+  (7 repos + earth-base by user), .bazelrc GITHUB_TOKEN (5 stage-3 repos)
+- earth-authentication-base has UNCOMMITTED changes on top of the pushed
+  .bazelrc commit: the whole 0010 migration + 63-char bucket fix
+- stage 3 remaining: website, content, language, hub, resourcemanager,
+  email, billing, app, storage (content/resourcemanager/email/billing/
+  storage have sql; website/language/hub/app do not)
+- README stage-3 lines now carry per-repo runtime data from user: mysql ips
+  (all envs 172.17.0.x - dev/staging/prod same ip, per-service distinct)
+  and ns zone letters - keep syncing NS letters into earth-base subdomains
+  when user adds them
