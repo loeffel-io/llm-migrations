@@ -24,7 +24,7 @@ repo migration.
 | earth-billing-base | chore/loeffel-io/0010 | STAGE 3 DONE (4 units: billing+billingrevenuecat+billingstripe+billingstripe-config; billingstripe has redis -eu-1; prod db-custom-1-3840; revenuecat-proto + billing-internal-proto bucket 63-char fixes) |
 | earth-storage-base | chore/loeffel-io/0010 | STAGE 3 DONE (prod db-custom-1-3840; RAW google_storage_bucket data buckets -> -eu-1 + location US->EU, missed initially) |
 | earth-website-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto; single service) |
-| earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented) |
+| earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented; GSA short-name fix was MISSED in batch, caught by user apply error: account_id >30 chars - fixed service/impl/proto to earth-language-s-<e> pattern) |
 | earth-hub-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto) |
 | earth-app-base | chore/loeffel-io/0010 | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
 | everything else | - | STAGE 3 COMPLETE - all 14 base repos done. next: stage 4 |
@@ -100,9 +100,11 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - earth-base `subdomains` NS record rrdatas: real values only known after
   the stage-3 child zone exists (gcloud assigns ns-cloud-<letter>{1..4} set).
   UPDATED per README so far: user (dev c/staging d/prod c), authorization
-  (a/d/a), iam (a/d/e), authentication (a/c/e), content (c/a/e). Openfga has
-  no zone (no dns in that repo). resourcemanager/email/billing/storage lines
-  in README still carry `x` placeholders - sync when user fills them in
+  (a/d/a), iam (a/d/e), authentication (a/c/e), content (c/a/e),
+  resourcemanager (c/a/c), email (d/d/d), emailmailgun (a/a/d),
+  storage (c/d/a), language (a/d/c). Openfga has no zone (no dns in that
+  repo). Still placeholder: billing/billingrevenuecat/billingstripe, hub,
+  app, website - sync when user adds letters to README
 
 ## provider 7.x breaking changes hit so far
 
@@ -325,8 +327,11 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
 1. repo itself: full recipe + these stage-3 specials:
    - sql settings: tier per README table, `edition = "ENTERPRISE"`,
      `availability_type = "ZONAL"`, `database_version = "MYSQL_8_4"`
-   - GSA short names incl proto/impl (watch long-form leftovers - user-base had
-     `earth-user-service-dev` style); descriptions stay long
+   - GSA short names incl proto/impl (watch long-form leftovers - user-base
+     AND language-base had `earth-<svc>-service-<env>` style; language slipped
+     through the batch because the check was skipped -> ALWAYS run
+     `rg 'account_id' | rg -v 'substr'` per repo; GCP limit: account_id
+     6-30 chars, `earth-language-service-production` = 33 = apply error)
    - production is usually a GSA stub + proto tf -> replicate service tf +
      main.tf from staging (_staging -> _production), fix production tier
    - proto tf gotchas: stale `_staging` module NAME inside production file
