@@ -92,9 +92,9 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - earth-base `subdomains` NS record rrdatas: real values only known after
   the stage-3 child zone exists (gcloud assigns ns-cloud-<letter>{1..4} set).
   UPDATED per README so far: user (dev c/staging d/prod c), authorization
-  (a/d/a), iam (a/d/e). Openfga has no zone (no dns in that repo). Remaining
-  services still carry copied placeholder values until user reports letters
-  in README (`ns zone: dev: X; staging: Y; production: Z` format)
+  (a/d/a), iam (a/d/e), authentication (a/c/e), content (c/a/e). Openfga has
+  no zone (no dns in that repo). resourcemanager/email/billing/storage lines
+  in README still carry `x` placeholders - sync when user fills them in
 
 ## provider 7.x breaking changes hit so far
 
