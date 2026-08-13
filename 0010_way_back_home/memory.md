@@ -17,6 +17,7 @@ repo migration.
 | earth-authorization-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
 | earth-iam-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
 | earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
+| earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE (legacy earth_auth_* files git-rm'd, authentication files migrated, production replicated, proto tf, KSAs, grants; no sql). Needs: user apply + UI cluster switch |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -405,3 +406,22 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
 - production proto tf had stale `_staging` module name + hub/app service
   reader grants -> commented with stage-3 markers (hub-base + app-base not
   migrated); dev+staging repos already had MYSQL_8_4+ZONAL on main (user)
+
+## earth-authentication-base specifics
+
+- 0010 branch is based on `chore/loeffel-io/auth-to-authentication` (3 commits
+  ahead of main) - the in-flight auth->authentication rename; merge/PR flow
+  must land that branch first or together
+- rename branch kept BOTH earth_auth_* (legacy) and earth_authentication_*
+  files; legacy auth files git-rm'd for the new projects (new projects get
+  authentication-only resources; earth-base subdomains map only delegates
+  `authentication`); earth-base still has legacy earth_auth_base.tf - user's
+  cleanup call, untouched
+- terraform.bzl SA renamed earth-auth-base-<env> ->
+  earth-authentication-base-<e>; backend buckets renamed auth ->
+  authentication (+-eu-1); pipeline generated with
+  earth-authentication-base-<env> KSAs
+- no sql, no redis; has pubsub subscription to user-events-v1, tls gateway
+  certs, dns zone authentication.<env>.mindful.com; proto tf had hub+app
+  reader grants -> commented with stage-3 markers; authentication GSA
+  account_ids were already short-form (from the rename branch)
