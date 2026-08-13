@@ -99,16 +99,14 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - global-base/deployments/production/global_ui.tf: 9 commented reader grants
 - earth-base `subdomains` NS record rrdatas: real values only known after
   the stage-3 child zone exists (gcloud assigns ns-cloud-<letter>{1..4} set).
-  UPDATED per README so far: user (dev c/staging d/prod c), authorization
-  (a/d/e), iam (a/d/e), authentication (a/c/e), content (c/a/e), user prod now a,
-  resourcemanager (c/a/c), email (d/d/a), emailmailgun (a/a/e),
-  storage (c/d/a), language (a/d/c). NOTE: production zones were RECREATED
-  after the apex-domain fix -> new letters for user (prod a), authorization
-  (prod e), email (prod a), emailmailgun (prod e); expect same for other
-  already-applied production zones (iam/authentication/content/... may
-  change too when user re-applies). Openfga has no zone (no dns in that
-  repo). Still placeholder: billing/billingrevenuecat/billingstripe, hub,
-  app, website - sync when user adds letters to README
+  SYNCED per README (incl post-apex-fix recreated production zones):
+  user (c/d/a), authorization (a/d/e), iam (a/d/a), authentication (a/c/d),
+  content (c/a/c), resourcemanager (c/a/a), email (d/d/a),
+  emailmailgun (a/a/e), storage (c/d/c), language (a/d/d) - production
+  letters re-synced in earth-base production main.tf (validate green,
+  uncommitted). Openfga has no zone (no dns in that repo). Still
+  placeholder: billing/billingrevenuecat/billingstripe, hub, app, website
+  - sync when user adds letters to README
 
 ## provider 7.x breaking changes hit so far
 
@@ -185,7 +183,10 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
 ## gotchas / environment notes
 
 - edit tools require View of exact file first; perl -pi for bulk renames works well
-- `terraform` CLI v1.14.8 installed locally; bazel targets run tflint/ls_lint only
+- NEVER use raw `terraform` CLI - use the repo wrappers via zsh aliases:
+  `td`/`ts`/`tp` = `bazel run //deployments/{dev,staging,production}:terraform`
+  (e.g. `zsh -ic 'tp -- validate'` from the repo root); bazel targets run
+  tflint/ls_lint only
 - root BUILD.bazel ls_lint references `//deployments/<env>:files` - remove/add
   entries when an env dir is emptied/created (earth-base production was empty for
   a while and broke `bazel build //...`)
