@@ -334,6 +334,11 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
      6-30 chars, `earth-language-service-production` = 33 = apply error)
    - production is usually a GSA stub + proto tf -> replicate service tf +
      main.tf from staging (_staging -> _production), fix production tier
+   - PRODUCTION DOMAINS: replace `.${var.env}.mindful.com` -> `.mindful.com`
+     (production zone is apex; `<svc>.production.mindful.com` does NOT exist;
+     cert would try wrong domain). Fixed retroactively in ALL 16 production
+     service files. Also check hardcoded env domains (storage CORS had
+     app/hub.staging.mindful.com + localhost -> app/hub.mindful.com)
    - proto tf gotchas: stale `_staging` module NAME inside production file
      (authorization, iam, user all had it), AR repo `-eu-1`, foreign
      service reader grants (hub/app/...) -> comment with stage-3 marker until
