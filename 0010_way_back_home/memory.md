@@ -14,6 +14,9 @@ repo migration.
 | buildkite-base | chore/loeffel-io/0010 | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
 | earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE + applied by user (repo, buildkite-base KSAs, earth-base WI grants, UI cluster switch, rules v0.19.11) |
+| earth-authorization-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
+| earth-iam-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
+| earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
 | everything else | - | not started |
 
 ## the standard migration recipe (per repo)
@@ -79,9 +82,12 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 - global-base/deployments/production/global_proto.tf: 18 commented
   artifact-registry reader grants for earth service/proto GSAs
 - global-base/deployments/production/global_ui.tf: 9 commented reader grants
-- earth-base (all envs) `subdomains` NS record rrdatas carry copied/old
-  nameserver values - real values only known after stage 3 child zones exist
-  (README: "earth-base DONE - ns missing")
+- earth-base `subdomains` NS record rrdatas: real values only known after
+  the stage-3 child zone exists (gcloud assigns ns-cloud-<letter>{1..4} set).
+  UPDATED per README so far: user (dev c/staging d/prod c), authorization
+  (a/d/a), iam (a/d/e). Openfga has no zone (no dns in that repo). Remaining
+  services still carry copied placeholder values until user reports letters
+  in README (`ns zone: dev: X; staging: Y; production: Z` format)
 
 ## provider 7.x breaking changes hit so far
 
@@ -139,12 +145,20 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
 
 ## db sizing table from README (stage 3 base repos, "sql <prod>; <dev+staging>")
 
-all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
+ALL SQL: availability_type ZONAL (user decision, replaced earlier REGIONAL
+plan) + database_version MYSQL_8_4 (in README now) + edition = "ENTERPRISE"
+(explicit, user added to all previously-done instances; include in every new
+sql instance settings block).
+require_ssl=true legacy -> ssl_mode TRUSTED_CLIENT_CERTIFICATE_REQUIRED;
+pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAPPING (README): db-lightweight-2 ->
 `db-custom-2-3840`, db-standard-1 -> `db-custom-1-3840`; db-micro ->
 `db-f1-micro`, db-small -> `db-g1-small` (real tier names, no mapping needed)
 - content/billing/user/storage/resourcemanager: prod db-custom-1-3840; dev+staging db-f1-micro
+  (user APPLIED incl ZONAL+8.4+ENTERPRISE)
 - iam/email/authorization: prod db-g1-small; dev+staging db-f1-micro
-- openfga: prod db-custom-2-3840; dev+staging db-g1-small (APPLIED, user fixed prod tier)
+  (iam APPLIED incl ZONAL+8.4)
+- openfga: prod db-custom-2-3840; dev+staging db-g1-small (APPLIED incl ZONAL+8.4)
+- authorization: APPLIED incl ZONAL+8.4 (prod db-g1-small)
 - website/language/hub/app/authentication: no sql
 
 ## gotchas / environment notes
@@ -155,8 +169,9 @@ all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
   entries when an env dir is emptied/created (earth-base production was empty for
   a while and broke `bazel build //...`)
 - WORKSPACE rules pin: ALL workspace repos must use
-  `com_github_mindful_hq_rules` tag v0.19.11 (required for the stage-3
-  buildkite/ksa flow); bumped everywhere in stage 1+2
+  `com_github_mindful_hq_rules` tag v0.19.14 (bumped from v0.19.11 across all
+  8 migrated repos, committed as "chore: update build rules to v0.19.14";
+  earth-base was already bumped+committed by user)
 - old projects: earth-dev-382708, earth-staging-382708, earth-production (no id),
   global-382710, buildkite-382710; base-504915 is the NEW base (from buildkite-382710)
 - buildkite repo still has old vars (us-central1, 382710) + all the tf files that
@@ -288,9 +303,27 @@ all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
   no code change needed. done for global-base; required for EVERY migrated repo
 - helm release keeps `# tags = ["queue=kubernetes"]` commented out - leave it
 
-## stage 3 per-repo checklist (established with earth-openfga-base)
+## stage 3 per-repo checklist (established with earth-openfga-base, refined via authorization/iam/user)
 
-1. repo itself: full recipe (was already done for openfga during stage 2 work)
+0. check `git status` first - user often pre-applies parts on main
+   (e.g. ZONAL/8.4 for user-base); check `rg 'edition|ZONAL|MYSQL'` before editing
+1. repo itself: full recipe + these stage-3 specials:
+   - sql settings: tier per README table, `edition = "ENTERPRISE"`,
+     `availability_type = "ZONAL"`, `database_version = "MYSQL_8_4"`
+   - GSA short names incl proto/impl (watch long-form leftovers - user-base had
+     `earth-user-service-dev` style); descriptions stay long
+   - production is usually a GSA stub + proto tf -> replicate service tf +
+     main.tf from staging (_staging -> _production), fix production tier
+   - proto tf gotchas: stale `_staging` module NAME inside production file
+     (authorization, iam, user all had it), AR repo `-eu-1`, foreign
+     service reader grants (hub/app/...) -> comment with stage-3 marker until
+     owning repo migrated, bucket suffix bugs (user internal-proto had
+     substr(env,0,1) on bucket)
+   - deprecations: kubernetes_namespace/secret -> _v1; data kubernetes_service
+     -> _v1 (only repos with ACTIVE monitoring SLOs, e.g. user-base)
+   - remove `cluster_required = False` from production BUILD.bazel
+   - pipeline.yml: generate from earth-authorization-base pipeline via
+     name replace
 2. buildkite-base: add `earth_<svc>_base_{dev,staging,production}.tf` KSA files
    (fake-gsa pattern, locals from locals.tf, ns `buildkite`, KSA name full-form
    `earth-<svc>-base-<env>` == pipeline serviceAccountName, GSA email short
@@ -314,7 +347,7 @@ all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
 - production deploys trigger on GIT TAGS (`if: build.tag != null` in
   pipeline.yml deployment-production groups - already in all migrated
   pipelines); dev+staging deploy on branch main
-- rules repo v0.19.11 mandatory for WORKSPACE repos (required for the
+- rules repo v0.19.14 mandatory for WORKSPACE repos (required for the
   stage-3 buildkite/ksa flow) - bumped in all stage 1+2 repos, keep for
   every stage-3+ repo
 
@@ -328,3 +361,47 @@ all REGIONAL availability. TIER VALUE MAPPING (README): db-lightweight-2 ->
 - user also removed the agents/queue block from earth-base pipeline (default
   queue is used everywhere); removed leftover queue block from
   earth-openfga-base pipeline too
+
+## earth-authorization-base specifics
+
+- has redis cluster (REDIS_SHARED_CORE_NANO, IAM auth) -> name got -eu-1;
+  gateway tls via tls provider (self-signed, KEEP tls in versions.tf);
+  pubsub subscription to user-service user-events-v1 (data lookups on
+  earth-user-service topics - created by earth-user-base? no: created in
+  earth-user-base/-service, exists per env at apply time, dev/staging use
+  per-dev topics); kubernetes_secret -> _v1, kubernetes_namespace -> _v1
+- sql: db-f1-micro dev+staging, db-g1-small production, ZONAL, MYSQL_8_4
+- production was 19-line stub + proto tf; replicated from staging
+  (_staging -> _production) + fixed proto tf: dedup resource names
+  (old file had duplicate production reader names), repo id -eu-1,
+  hub-service reader grants commented with stage-3 marker (earth-hub-base
+  not migrated), proto GSA repoAdmin kept
+- production BUILD.bazel: cluster_required=False removed
+- ssl_mode here is pre-existing "ENCRYPTED_ONLY" (unlike openfga's
+  TRUSTED_CLIENT_CERTIFICATE_REQUIRED) - left as-is, pre-existing choice
+
+## stage 3 repo shape notes (iam == authorization minus redis/pubsub)
+
+- earth-iam-base: no redis, no pubsub; has tls gateway certs, dns zone
+  iam.<env>.mindful.com, certmap entry hostname domains[1], per-dev namespaces
+  in dev, single ns staging/prod; production was 18-line gsa stub + proto tf
+  with STALE module name (gsa_..._proto_staging in production file!) - fixed
+  during replication; same stale-name pattern existed in authorization
+- pipeline.yml can be generated: copy authorization pipeline, replace repo name
+  (perl/python string replace "earth-authorization-base" -> "earth-<svc>-base")
+
+## earth-user-base specifics
+
+- OWNS the user-events-v1 pubsub topics (+dead-letter) that authorization
+  subscribes to; has ACTIVE monitoring SLOs/alerts (not commented like
+  openfga/authorization) -> `data "kubernetes_service"` needed _v1 migration
+  (kubernetes_service_v1); no redis; sql had NO ssl config at all
+  (pre-existing, left without ssl_mode)
+- GSA short-name fixes: service/impl were long-form (`earth-user-service-dev`)
+  -> `earth-user-s-d` + `-i`; proto was `earth-user-service-proto-p` ->
+  `earth-user-s-p-p` (matches global-base commented readers!); internal proto
+  already short (`earth-user-s-i-p-p`) but its BUCKET had a bug: suffix was
+  substr(env,0,1) -> fixed to full env
+- production proto tf had stale `_staging` module name + hub/app service
+  reader grants -> commented with stage-3 markers (hub-base + app-base not
+  migrated); dev+staging repos already had MYSQL_8_4+ZONAL on main (user)

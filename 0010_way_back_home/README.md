@@ -52,8 +52,10 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 ### stage 3
 
 ```text
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production db-lightweight-2 zonal; sql dev + staging db-small zonal # DONE
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base: sql production db-small zonal; sql dev + staging db-micro zonal
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-base: sql production db-lightweight-2 zonal; sql dev + staging db-small zonal; mysql ips: dev: 172.17.0.2; staging: 172.17.0.2; production: 172.17.0.2 # DONE
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.10; staging: 172.17.0.10; production: 172.17.0.10; ns zone: dev: c; staging: d; production: c
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-base: sql production db-small zonal; sql dev + staging db-micro zonal # DONE mysql ips: dev: 172.17.0.12; staging: 172.17.0.12; production: 172.17.0.12; ns zone: dev: a; staging: d; production: a
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small zonal; sql dev + staging db-micro zonal # DONE mysql ips: dev: 172.17.0.8; staging: 172.17.0.8; production: 172.17.0.8; ns zone: dev: a; staging: d; production: e
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base
@@ -62,14 +64,13 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-base: sql production db-small zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-base: sql production db-small zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-base
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.
 `db-standard-1` must be `db-custom-1-3840` tier value to work.
+all repos need to use the mysql 8.4 version and edition `enterprise`
 
 every stage 3 repository needs three additional cross-repo changes:
 
@@ -192,6 +193,6 @@ please upgrade with `td|ts|tp -- init -upgrade` while td is dev, ts is staging, 
 - tflint google: v0.39.0
 - global-tfmodule-ksa: v0.9.0
 - global-tfmodule-gsa: v0.9.0 # introduces gsa bucket names with -eu-1 suffix
-- rules (com_github_mindful_hq_rules): v0.19.11 # required for bazel workspace repositories
+- rules (com_github_mindful_hq_rules): v0.19.14 # required for bazel workspace repositories
 
 you are not allowed to do any apply or destroy.
