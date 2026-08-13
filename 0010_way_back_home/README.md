@@ -69,6 +69,7 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-config
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.
@@ -91,7 +92,7 @@ every stage 3 repository needs three additional cross-repo changes:
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa
+/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa # DONE
 /Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-internal-proto
@@ -100,17 +101,15 @@ every stage 3 repository needs three additional cross-repo changes:
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/global-ui
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-google-cloud-gke-cluster
 /Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/global-renovate-config
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-ksa
+/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-ksa # DONE
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-internal-proto
 /Users/loeffel/go/src/github.com/mindful-hq/dart-registry
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-config
 /Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-internal-proto
 ```
 
