@@ -77,7 +77,7 @@ every stage 3 repository needs three additional cross-repo changes:
 2. earth-base: `roles/iam.serviceAccountAdmin` grant on the repo gsa for `buildkite-base-p@buildkite-504915.iam.gserviceaccount.com` in each env's `earth_<svc>_base.tf` (no comments)
 3. apply order: earth-base (grants) -> buildkite-base (KSAs) -> switch pipeline cluster in buildkite ui
 
-earth-billingstripe-config specials: its gsa `earth-billingstripe-c-<e>` is owned by earth-billing-base (`earth_billingstripe_config.tf`), so the serviceAccountAdmin grants live there (NOT earth-base). the stripe accounts survived the migration but the new terraform state was empty -> everything had to be `td|ts -- state rm` (duplicates) + `import`ed: products, prices (destroy = archive in stripe; lookup_key 400 = exists, import it), webhooks (duplicates must additionally be deleted manually in the stripe dashboard), portal configuration (`bpc_...` id from Settings -> Billing -> Customer portal). dev has per-user workspaces via MINDFUL_USER. production (stripe live account) will need the same import procedure on first tp apply. details + all ids in memory.md.
+earth-billingstripe-config specials: its gsa `earth-billingstripe-c-<e>` is owned by earth-billing-base (`earth_billingstripe_config.tf`), so the serviceAccountAdmin grants live there (NOT earth-base). the stripe accounts survived the migration but the new terraform state was empty -> everything had to be `td|ts -- state rm` (duplicates) + `import`ed: products, prices (destroy = archive in stripe; lookup*key 400 = exists, import it), webhooks (duplicates must additionally be deleted manually in the stripe dashboard), portal configuration (`bpc*...` id from Settings -> Billing -> Customer portal). dev has per-user workspaces via MINDFUL_USER. production (stripe live account) will need the same import procedure on first tp apply. details + all ids in memory.md.
 
 ### stage 4
 
@@ -109,6 +109,8 @@ earth-billingstripe-config specials: its gsa `earth-billingstripe-c-<e>` is owne
 /Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-internal-proto
 ```
+
+important info. during a rules_js bazel bug you need to authenticate npmrc with bazel run //deployments/production/npm:npmrc in stage 4 and need to bazel clean --expunge after the npmrc authentication. after that the build can be restarted and works.
 
 ### stage 5
 

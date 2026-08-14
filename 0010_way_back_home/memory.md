@@ -577,3 +577,25 @@ Key learnings:
   (the cdn has its OWN global address, NOT the 35.244.133.111 gateway)
 - NOT touched: website + app (per user), staging/production
 - REVERT: rg the marker, restore the data-source line, delete IP + comments
+
+## stage 1-3 production-readiness audit (pre stage 4)
+
+- all 19 repos: branch chore/loeffel-io/0010, clean, pushed (ahead=0)
+- consistent everywhere: europe-west3 + -504915 (no 382708/382710/us-central1
+  leftovers), bazel 6.6.0, rules v0.19.14, .bazelrc GITHUB_TOKEN, gsa/ksa
+  v0.9.0, google >= 7.43.0, tflint 0.39.0, agent-stack-k8s pipelines with
+  new image digest + -eu-1 cache buckets + tag-gated production
+- fixed during audit: billingstripe-config staging+production .tflint.hcl
+  were 0.25.0 (dev was 0.26.0 -> only that one got replaced earlier)
+- UNCOMMENTED all 78 stage-3 marker reader grants (13 files: 9 earth-*
+  production proto tfs + global-base global_proto.tf/global_ui.tf) - all
+  owning GSAs now exist. NO markers left anywhere. Validate+fmt+bazel green
+- cross-repo wiring verified: buildkite-base 16x3 KSA files (14 base repos +
+  earth_base + billingstripe_config), earth-base 14 grant files per env,
+  billingstripe-config grants in earth-billing-base (3 envs)
+- earth-base NS: all zones synced (60/60/68 ns-cloud lines dev/staging/prod)
+- no production.mindful.com leftovers anywhere
+- user TODOs before/during stage 4: apply the uncommented reader grants
+  (global-base + 9 earth production repos), app-base production SHA
+  hashes still staging copies, tmp dev DNS fallback must be reverted in
+  2-3 days, archive stripe duplicates
