@@ -562,3 +562,18 @@ Key learnings:
   -> import: topics `projects/<proj>/topics/<name>`, GSAs
   `projects/<proj>/serviceAccounts/<email>`, for_each keys quoted:
   `'resource.name["loeffel-io"]'`
+
+## TEMPORARY dev DNS fallback to us-central1 (REVERT in 2-3 days!)
+
+- team blocked since migration -> ALL dev per-dev service A records
+  (loeffel-io.<svc>.dev.mindful.com etc.) temporarily point to the OLD
+  us-central1 LB `35.244.133.111` instead of the new gateway address
+- marker comment `# 0010_way_back_home: tmp us-central1 fallback, revert
+  after migration` above the commented-out original rrdatas line
+- 14 A records in 11 repos (deployments/dev): content, user, authorization,
+  iam, authentication, resourcemanager, email + emailmailgun, storage,
+  language, billing + billingstripe + billingrevenuecat, hub
+- PLUS storage cdn.storage.dev.mindful.com -> old cdn LB `34.111.1.218`
+  (the cdn has its OWN global address, NOT the 35.244.133.111 gateway)
+- NOT touched: website + app (per user), staging/production
+- REVERT: rg the marker, restore the data-source line, delete IP + comments
