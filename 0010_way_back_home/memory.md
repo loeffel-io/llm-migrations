@@ -27,8 +27,8 @@ repo migration.
 | earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented; GSA short-name fix was MISSED in batch, caught by user apply error: account_id >30 chars - fixed service/impl/proto to earth-language-s-<e> pattern) |
 | earth-hub-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto) |
 | earth-app-base | chore/loeffel-io/0010 | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
-| earth-billingstripe-config | chore/loeffel-io/0010 | DONE (full recipe; no gcloud resources of its own - stripe products/prices/portal; production main.tf replicated from staging w/ apex domains billingstripe.mindful.com + app.mindful.com; KEEP stripe/stripe + lukasaron/stripe (stripe-third-party) 3.4.1 providers; dev pipeline needs MINDFUL_USER=master + MINDFUL_USER_REVENUECAT_APP_ID=app24d412ed4b as container env in podSpec; its GSA earth-billingstripe-c-<e> is OWNED BY earth-billing-base earth_billingstripe_config.tf -> serviceAccountAdmin grants added THERE (not earth-base); buildkite-base KSA files earth_billingstripe_config_{dev,staging,production}.tf added; all validate+bazel green; uncommitted). Needs: user apply (billing-base grants -> buildkite-base -> pipeline) + UI cluster switch |
-| everything else | - | STAGE 3 COMPLETE - all 14 base repos done. next: stage 4 |
+| earth-billingstripe-config | chore/loeffel-io/0010 | DONE + APPLIED BY USER all envs (full recipe; no gcloud resources of its own - stripe products/prices/portal/webhooks; production main.tf replicated from staging w/ apex domains billingstripe.mindful.com + app.mindful.com; KEEP stripe/stripe + lukasaron/stripe (stripe-third-party) 3.4.1 providers; dev pipeline needs MINDFUL_USER=master + MINDFUL_USER_REVENUECAT_APP_ID=app24d412ed4b as container env in podSpec; its GSA earth-billingstripe-c-<e> is OWNED BY earth-billing-base earth_billingstripe_config.tf -> serviceAccountAdmin grants added THERE (not earth-base); buildkite-base KSA files earth_billingstripe_config_{dev,staging,production}.tf added; stripe resources imported into new state - see stripe import section). Remaining: user UI cluster switch + archive orphaned duplicate stripe products/webhooks |
+| everything else | - | STAGE 3 COMPLETE - all 14 base repos + billingstripe-config done. next: stage 4 (gsa+ksa tfmodules already DONE per README) |
 
 ## the standard migration recipe (per repo)
 
@@ -521,3 +521,44 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
   can be uncommented as soon as this batch is APPLIED (owning repos now exist
   in code; grants activate after their earth-base/buildkite-base applies)
 - pipeline serviceAccountNames: earth-<svc>-base-<env> as usual
+
+## stripe state migration (earth-billingstripe-config) - import playbook
+
+The new -eu-1 terraform state was EMPTY but the stripe accounts already had
+all resources -> every apply 409'd or created DUPLICATES. Stripe accounts are
+per env/workspace: dev loeffel-io acct_1T0dom3PMKBmrlYq, dev master
+acct_1T0dp93wMyiTnEdS, staging acct_1T0eN241t1X8B9kJ. dev uses per-user
+workspaces (MINDFUL_USER define selects backend prefix + secret).
+
+Key learnings:
+- `destroy` on stripe_price = ARCHIVE in stripe (not delete); lookup_key
+  conflicts (400 "already uses that lookup key") mean the price exists ->
+  import, never recreate
+- ordering trap: if products got newly created (duplicates) but prices are
+  imported from the OLD products, plan shows `product ... forces replacement`
+  -> must `state rm` the duplicate products and import the OLD product ids
+  (find them via the price detail page in the stripe dashboard) BEFORE/WITH
+  importing the prices
+- webhooks: applies created duplicate webhook endpoints -> `state rm` the
+  new ones from state, import the old ids, then DELETE the duplicates
+  manually in the stripe dashboard (state rm leaves them alive in stripe)
+- portal config ids (bpc_...): dashboard Settings -> Billing -> Customer
+  portal; dev master bpc_1TWAuP3wMyiTnEdSk8YKyWUs
+- old webhook ids imported: dev loeffel-io revenuecat
+  we_1TVBgm3PMKBmrlYqe22lBNqg / billingstripe we_1TVBgn3PMKBmrlYqhCgg2Bz9;
+  dev master revenuecat we_1TVRpP3wMyiTnEdSNAKGWuYh / billingstripe
+  we_1TVRpO3wMyiTnEdSo68o7IVu; staging revenuecat
+  we_1TVSRC41t1X8B9kJ0pfYAxKK / billingstripe we_1TVSRD41t1X8B9kJDhJk8N0D
+- command shape: `td|ts -- state rm <addr>` + `td|ts -- import <addr> <id>`
+  (td dev needs correct MINDFUL_USER workspace); production not touched yet
+  (stripe live account - expect the same import dance on first tp apply)
+- leftover duplicates to archive/delete manually in stripe: products
+  prod_V4Ma*/prod_V4Nb* (per account) + the duplicate we_1U4* webhooks
+
+## import playbook (google 409s, general)
+
+- 409 "already exists" for topics/GSAs in the PRE-EXISTING side projects
+  (earth-dev-revenuecat, earth-staging-revenuecat - NOT migrated, no -504915)
+  -> import: topics `projects/<proj>/topics/<name>`, GSAs
+  `projects/<proj>/serviceAccounts/<email>`, for_each keys quoted:
+  `'resource.name["loeffel-io"]'`
