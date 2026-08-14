@@ -61,12 +61,11 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.20; staging: 172.17.0.20; production: 172.17.0.20; billing ns zone: dev: d; staging: c; production: e; billingstripe ns zone: dev: c; staging: c; production: e; billingrevenuecat ns zone: dev: a; staging: c; production: c
 /Users/loeffel/go/src/github.com/mindful-hq/earth-storage-base: sql production db-standard1 zonal; sql dev + staging db-micro zonal # DONE sql dev + staging db-micro zonal; mysql ips: dev: 172.17.0.22; staging: 172.17.0.22; production: 172.17.0.22; ns zone: dev: c; staging: d; production: c
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-base: ns zone: dev: a; staging: d; production: d
+/Users/loeffel/go/src/github.com/mindful-hq/earth-website-base: no ns zone. point directly with A
+/Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base: ns zone: dev: d; staging: d; production: a
+/Users/loeffel/go/src/github.com/mindful-hq/earth-app-base: ns zone: dev: a; staging: a; production: d
 
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-config
-
-/Users/loeffel/go/src/github.com/mindful-hq/earth-website-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base
-/Users/loeffel/go/src/github.com/mindful-hq/earth-app-base
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.

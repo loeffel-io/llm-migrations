@@ -27,6 +27,7 @@ repo migration.
 | earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented; GSA short-name fix was MISSED in batch, caught by user apply error: account_id >30 chars - fixed service/impl/proto to earth-language-s-<e> pattern) |
 | earth-hub-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto) |
 | earth-app-base | chore/loeffel-io/0010 | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
+| earth-billingstripe-config | chore/loeffel-io/0010 | DONE (full recipe; no gcloud resources of its own - stripe products/prices/portal; production main.tf replicated from staging w/ apex domains billingstripe.mindful.com + app.mindful.com; KEEP stripe/stripe + lukasaron/stripe (stripe-third-party) 3.4.1 providers; dev pipeline needs MINDFUL_USER=master + MINDFUL_USER_REVENUECAT_APP_ID=app24d412ed4b as container env in podSpec; its GSA earth-billingstripe-c-<e> is OWNED BY earth-billing-base earth_billingstripe_config.tf -> serviceAccountAdmin grants added THERE (not earth-base); buildkite-base KSA files earth_billingstripe_config_{dev,staging,production}.tf added; all validate+bazel green; uncommitted). Needs: user apply (billing-base grants -> buildkite-base -> pipeline) + UI cluster switch |
 | everything else | - | STAGE 3 COMPLETE - all 14 base repos done. next: stage 4 |
 
 ## the standard migration recipe (per repo)
@@ -103,10 +104,10 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
   user (c/d/a), authorization (a/d/e), iam (a/d/a), authentication (a/c/d),
   content (c/a/c), resourcemanager (c/a/a), email (d/d/a),
   emailmailgun (a/a/e), storage (c/d/c), language (a/d/d), billing (d/c/e),
-  billingstripe (c/c/e), billingrevenuecat (a/c/c) - all synced in
-  earth-base main.tf (validate green all envs, uncommitted). Openfga has
-  no zone (no dns in that repo). Still placeholder: hub, app, website
-  - sync when user adds letters to README
+  billingstripe (c/c/e), billingrevenuecat (a/c/c), hub (d/d/a),
+  app (a/a/d) - ALL synced in earth-base main.tf (validate green all envs,
+  uncommitted). Website has NO ns zone (direct A record, per README).
+  Openfga has no zone (no dns in that repo). NS sync COMPLETE.
 
 ## provider 7.x breaking changes hit so far
 
