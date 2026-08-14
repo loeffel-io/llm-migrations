@@ -599,3 +599,86 @@ Key learnings:
   (global-base + 9 earth production repos), app-base production SHA
   hashes still staging copies, tmp dev DNS fallback must be reverted in
   2-3 days, archive stripe duplicates
+
+## stage 4 (in progress -> DONE code-side)
+
+All 21 stage-4 repos (rules, 16 proto/internal-proto, global-proto/ui/
+generics, dart-registry) on chore/loeffel-io/0010, migrated:
+
+- MODULE repos: .bazelversion 8.6.0, pipeline image digest 8a769263...;
+  rules is now ALSO a MODULE repo on main (8.6.0 + .bazelrc existed) -
+  NOT 6.6.0 as the old checkout suggested
+- PULL FIRST gotcha: global-ui was 60 behind, rules 102 behind (0010 branch
+  was cut from stale maintenance/loeffel-io/bazel-workspace) -> re-branched
+  from fresh origin/main and re-applied. ALWAYS git fetch + check behind
+  before branching stage 5 repos!
+- pipelines: EmbarkStudios -> agent-stack-k8s (production-only pipelines,
+  single serviceAccountName <repo>-production), cache buckets -eu-1;
+  63-char bucket substr names reflected in pipeline env urls
+  (...-bazel-p-eu-1 for authentication/resourcemanager/email-internal/
+  billingrevenuecat/billing-internal); dart-registry pipeline has NO
+  serviceAccountName (no KSA on main) and NO remote cache
+- npm repos: vars.bzl europe-west3 + earth-production-504915/global-504915;
+  .npmrc/package.json/pnpm-lock.yaml registry urls ->
+  europe-west3-npm.pkg.dev/<new-project>/<repo>-production-eu-1;
+  npm/BUILD.bazel registries + gcloud_service_account short form
+  (earth-<svc>-s-p-p@..., global-proto-p@..., global-ui-p@...)
+- npmrc rules_js bug workaround (USER INFO): `bazel run
+  //deployments/production/npm:npmrc` then `bazel clean --expunge`, then
+  rebuild works. Auth alone is NOT enough for the 10 earth npm proto repos:
+  builds still 403 on global-proto-production-eu-1 tarball - EXPECTED until
+  user applies the new grants + global-proto is published to the new AR
+  (chicken-egg; global-proto/global-ui/generics/dart-registry/rules and the
+  5 github-only internal-proto repos all build+test PASS locally)
+- dart-registry: rules git_override bumped v0.20.36 -> v0.20.62 (sh_test
+  native removal in bazel 8.6), .bazelversion 8.6.0 added (was missing);
+  e2e test needs GH_TOKEN env (`gh auth token`)
+- cross-repo additions (all validate green): 6 missing AR -eu-1 suffixes
+  fixed (billingstripe/email/language/billing/resourcemanager/storage
+  production proto AR); 20 serviceAccountAdmin grants appended in owning
+  repos (16 earth proto/internal-proto + rules/global_proto/global_ui/
+  global_generics in global-base); 20 KSA files + BUILD entries in
+  buildkite-base (KSA name <repo>-production, gsa short names, earth vs
+  global project locals)
+- global-renovate-config: nothing to migrate (no bazel, no region refs);
+  renovate is being removed in the new buildkite project anyway
+- apply order for stage 4: earth-*-base tp + global-base tp (grants+AR) ->
+  buildkite-base tp (KSAs) -> publish global-proto to new AR (tag) ->
+  earth npm proto repos build; then buildkite UI cluster switch per pipeline
+
+## stage 4 applies (DONE by agent, user-authorized)
+
+- applied production via `tp -- apply -auto-approve`: 9 earth base repos
+  (user/authorization/iam/authentication/content/resourcemanager/email/
+  storage/language/billing), global-base, buildkite-base (40 KSA resources)
+- AR rename to -eu-1 = destroy+create (the "2 destroyed" per repo were the
+  old non-suffixed production proto ARs; billing had 4)
+- global-base showed "no changes": user had already applied it (grants were
+  in state); NOT the cache bug that time
+- old bug workaround when apply picks up stale files: `bazel clean` +
+  `tp -- init` then re-apply (bazel run copies terraform_files from cache)
+- `tp -- plan -detailed-exitcode` exit codes do NOT propagate through the
+  bazel wrapper - grep "No changes" instead
+- final state: all 12 repos plan clean. earth npm proto repo builds should
+  now work after global-proto is published to the new AR (tag release)
+
+## pipeline image digest correction (stage 4)
+
+- the two digests in README `## bazel version` (5e8a214=6.6.0, 8a769263=8.6.0)
+  are the UPSTREAM gcr.io/bazel-public/bazel BASE image digests - they are
+  what goes into buildkite-base WORKSPACE container_pull, NOT into pipelines
+- pipelines must pin the digest of the PUSHED buildkite-bazel image
+  (base + home/ssh tars). global-proto v2.24.0 release failed with
+  image-pull error because stage-4 pipelines pinned the base digest 8a769263
+- pushed buildkite-bazel image digests (pipelines pin THESE):
+  6.6.0 tag = sha256:014c9027d239a4e4de7e5d4354f3fd020c2b203dc36838d6999808711277455b
+  8.6.0 tag = sha256:6a226aebce87b34d7a99094bb37f6b3fe6a260c75adf9d4401aaffeaec24e0f5
+  (user pushed + verified in AR)
+- all 21 stage-4 MODULE pipelines now pin 6a226aeb; the 18 WORKSPACE
+  base-repo pipelines keep 014c9027
+- global-proto 2.24.0 published to new AR MANUALLY by agent (local
+  `bazel run //deployments/production/npm:global_proto.publish` with
+  BUILDKITE_TAG=v2.24.0 after npmrc auth + clean --expunge) - npm proto
+  repos bumped to ^2.24.0 with regenerated pnpm locks (integrity
+  sha512-N1dx3Gd8...); the failed buildkite release can be re-run later
+  with the fixed pipeline for cache-bucket parity, package already usable
