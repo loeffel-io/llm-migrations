@@ -64,8 +64,7 @@ the bazel module version repositories need to use bazelversion 8.6.0 with buildk
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-base: no ns zone. point directly with A
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-base: ns zone: dev: d; staging: d; production: a
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-base: ns zone: dev: a; staging: a; production: d
-
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-config
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-config: DONE
 ```
 
 `db-lightweight-2` must be `db-custom-2-3840` tier value to work.

@@ -501,6 +501,10 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
 - batch glob gotcha: `earth-*-base` globs match NOT-YET-MIGRATED repos
   (earth-language-base got touched, reverted via git checkout) - always
   list repos explicitly
+- env vars.bzl gotcha: project ids are CONCATENATED
+  (`gcloud_project + "-dev-382708"`) - perl patterns like `earth-dev-382708`
+  silently miss; always `cat deployments/*/vars.bzl` to verify after replace
+  (hit in earth-billingstripe-config, caught by user 403 with old project id)
 
 ## no-sql repo batch notes (website/language/hub/app)
 
