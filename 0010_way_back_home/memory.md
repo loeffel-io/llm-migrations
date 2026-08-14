@@ -102,10 +102,10 @@ Marked with comment: `# 0010_way_back_home: stage 3 - uncomment after the owning
   SYNCED per README (incl post-apex-fix recreated production zones):
   user (c/d/a), authorization (a/d/e), iam (a/d/a), authentication (a/c/d),
   content (c/a/c), resourcemanager (c/a/a), email (d/d/a),
-  emailmailgun (a/a/e), storage (c/d/c), language (a/d/d) - production
-  letters re-synced in earth-base production main.tf (validate green,
-  uncommitted). Openfga has no zone (no dns in that repo). Still
-  placeholder: billing/billingrevenuecat/billingstripe, hub, app, website
+  emailmailgun (a/a/e), storage (c/d/c), language (a/d/d), billing (d/c/e),
+  billingstripe (c/c/e), billingrevenuecat (a/c/c) - all synced in
+  earth-base main.tf (validate green all envs, uncommitted). Openfga has
+  no zone (no dns in that repo). Still placeholder: hub, app, website
   - sync when user adds letters to README
 
 ## provider 7.x breaking changes hit so far
