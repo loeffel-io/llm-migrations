@@ -114,6 +114,9 @@ important info. during a rules_js bazel bug you need to authenticate npmrc with 
 
 ### stage 5
 
+STATUS: stage 4 done + verified (all proto npm packages in AR confirmed). PAUSED before stage 5 - see memory.md checkpoint for the resume plan (tfmodule applies + ADC, unmerged branches, dev DNS revert).
+
+
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service

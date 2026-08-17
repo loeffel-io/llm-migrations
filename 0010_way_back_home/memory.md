@@ -803,3 +803,22 @@ ALL proto deps, not just npm package.json.
   earth-emailmailgun-service-internal-proto: DEPRECATED, no longer used
   (user confirmed) - skip, no migration. STAGE 4 COMPLETE except
   tfmodule-gsa/ksa applies (ADC) + 4 unmerged branches
+
+## npm registry verification (frontend deps) + checkpoint
+
+- earth-production-504915 AR npm registries verified via console list: all
+  11 earth proto packages published (recent update + size per registry);
+  authentication was the scrolled-off first row - user confirmed complete
+- frontend (hub/app/website) additionally consumes from global-504915:
+  global-proto-production-eu-1 (2.25.0 published) + global-ui-production-eu-1
+- CHECKPOINT: stage 4 fully done + verified. PAUSED - waiting for user
+  go-ahead. Next steps on resume:
+  1. tfmodule-gsa/ksa applies (needs `gcloud auth application-default login`
+     first - ADC gone) + UI cluster switch for both pipelines
+  2. merge unmerged stage-4 branches: rules, global-ui, global-generics,
+     dart-registry (+ commit stage 1-3 base repos if desired)
+  3. STAGE 5: 17 service repos - rules: git fetch + behind-check before
+     branching, consume final proto versions table, MODULE.bazel/go.mod/
+     package.json pin audit, format.check mandatory, npmrc auth flow
+  4. revert tmp dev DNS fallback (35.244.133.111 / cdn 34.111.1.218)
+  5. stripe duplicate cleanup in dashboards
