@@ -82,32 +82,32 @@ earth-billingstripe-config specials: its gsa `earth-billingstripe-c-<e>` is owne
 ### stage 4
 
 ```text
-/Users/loeffel/go/src/github.com/mindful-hq/rules
-/Users/loeffel/go/src/github.com/mindful-hq/earth-content-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-internal-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-generics
-/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa
-/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-language-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-internal-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-internal-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-ui
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-renovate-config
-/Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-ksa # DONE
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-internal-proto
-/Users/loeffel/go/src/github.com/mindful-hq/dart-registry
-/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-internal-proto
+/Users/loeffel/go/src/github.com/mindful-hq/rules # DONE (migrated, branch chore/loeffel-io/0010 unmerged)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-content-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-internal-proto # DONE released v1.0.0
+/Users/loeffel/go/src/github.com/mindful-hq/global-generics # DONE (migrated, branch unmerged)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-proto # DONE released v1.12.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service-proto # DONE released v1.0.1
+/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa # DONE (migrated, applies pending ADC)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-language-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-internal-proto # DONE released v1.0.1
+/Users/loeffel/go/src/github.com/mindful-hq/global-proto # DONE released v2.25.0
+/Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-internal-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authorization-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/global-ui # DONE (migrated, branch unmerged)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-proto # DONE released v1.0.1
+/Users/loeffel/go/src/github.com/mindful-hq/global-renovate-config # DONE (nothing to migrate)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-ksa # DONE (migrated, applies pending ADC)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-internal-proto # DEPRECATED - no longer used, skip
+/Users/loeffel/go/src/github.com/mindful-hq/dart-registry # DONE (migrated, branch unmerged)
+/Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-resourcemanager-service-proto # DONE released v1.0.2
+/Users/loeffel/go/src/github.com/mindful-hq/earth-emailmailgun-service-internal-proto # DEPRECATED - no longer used, skip
 ```
 
 important info. during a rules_js bazel bug you need to authenticate npmrc with bazel run //deployments/production/npm:npmrc in stage 4 and need to bazel clean --expunge after the npmrc authentication. after that the build can be restarted and works.

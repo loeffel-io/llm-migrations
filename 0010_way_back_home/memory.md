@@ -736,7 +736,7 @@ generics, dart-registry) on chore/loeffel-io/0010, migrated:
 |---|---|
 | global-proto | v2.25.0 |
 | earth-user-service-proto | v1.0.2 |
-| earth-user-service-internal-proto | v1.0.1 |
+| earth-user-service-internal-proto | v1.0.2 |
 | earth-content-service-proto | v1.0.2 |
 | earth-email-service-proto | v1.12.2 |
 | earth-email-service-internal-proto | v1.0.0 |
@@ -783,3 +783,23 @@ ALL proto deps, not just npm package.json.
 - NOTE: gsa module main.tf appends -eu-1 + location EU itself (that IS the
   v0.9.0 behavior); module repo tags v0.9.0 already exist - after this
   migration lands, next module release tag continues from v0.9.x
+- PIPELINE GOTCHA (hit on tfmodule-gsa): old tfmodule pipelines had NO
+  `*init` step; in agent-stack-k8s git-ssh comes from `. ${HOME}/init.sh`
+  (old chart injected /secrets/ssh-key -> "no such identity" failure).
+  EVERY migrated pipeline step needs `- *init` as first command
+
+## proto releases ALL CONFIRMED (github release list checked)
+
+- every proto repo released at its final version incl the 6 initially-red
+  ones (billing x4, storage, user-internal) - user fixed/retried those;
+  user-internal-proto published as v1.0.2 (supersedes table entry note)
+- STAGE 4 FULLY DONE except: global-tfmodule-gsa/ksa applies (blocked on
+  ADC restore) + their pipeline verification, and unmerged branches:
+  global-ui, global-generics, dart-registry, rules
+- READY FOR STAGE 5 (17 service repos). stage-5 must: git fetch + behind
+  check first, use final proto versions table, run format.check, audit
+  MODULE.bazel git_overrides + go.mod + package.json for proto pins
+- earth-billingstripe-service-internal-proto +
+  earth-emailmailgun-service-internal-proto: DEPRECATED, no longer used
+  (user confirmed) - skip, no migration. STAGE 4 COMPLETE except
+  tfmodule-gsa/ksa applies (ADC) + 4 unmerged branches
