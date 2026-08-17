@@ -89,7 +89,7 @@ earth-billingstripe-config specials: its gsa `earth-billingstripe-c-<e>` is owne
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service-proto
-/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa # DONE
+/Users/loeffel/go/src/github.com/mindful-hq/global-tfmodule-gsa
 /Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service-proto
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service-internal-proto

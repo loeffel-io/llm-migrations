@@ -682,3 +682,104 @@ generics, dart-registry) on chore/loeffel-io/0010, migrated:
   repos bumped to ^2.24.0 with regenerated pnpm locks (integrity
   sha512-N1dx3Gd8...); the failed buildkite release can be re-run later
   with the fixed pipeline for cache-bucket parity, package already usable
+
+## stage 4 FINAL (all green)
+
+- global-proto v2.25.0 released via fixed pipeline (v2.24.0 tag broken -
+  released while pipeline still had wrong image digest; superseded)
+- all 11 npm proto repos bumped to ^2.25.0, locks regenerated, build+test
+  PASS everywhere (21/21 stage-4 repos green: 11 npm protos, 5 github-only,
+  global-proto/ui/generics, dart-registry, rules)
+- npmrc hint (user): all proto repos share $HOME/.npmrc - ONE
+  `bazel run //deployments/production/npm:npmrc` + ONE
+  `bazel clean --expunge` (only in repos with a CACHED failed fetch)
+  suffices; fresh repos just build after auth
+- global-proto is DONE on main (merged PR #55 + digest bump commit);
+  remaining stage-4 repos have uncommitted 0010 changes for user review
+- user TODOs: commit+push+PR the 20 dirty repos, buildkite UI cluster
+  switch per stage-4 pipeline, then re-tag releases as needed
+
+## proto releases (stage 4 -> production ready)
+
+- all 16 earth proto/internal-proto repos: 0010 committed, merged to main,
+  pushed, tagged + pushed. 15x v1.0.0 (were <1.0.0); earth-email-service-proto
+  v1.12.0 (was v1.11.0). Buildkite releases trigger on these tags
+- PRECONDITION for green releases: buildkite UI cluster switch per pipeline
+  (old chart agents fail on the virtual kubernetes plugin) - if a tag build
+  fails, switch cluster + retry the build, no re-tag needed
+- these versions are what stage-5 service repos should consume
+  (npm @<repo>-production registry -eu-1 / github releases for go+dart)
+- still unmerged (dirty or branch-only): global-ui, global-generics,
+  dart-registry, rules + all stage 1-3 base repos
+
+## INCIDENT: proto release pipelines failed on format.check (NOT ACCEPTABLE - learn)
+
+- ROOT CAUSE: pnpm `install --lockfile-only` writes pnpm-lock.yaml WITH
+  blank lines; the repos' `bazel run //tools/format:format.check` (yaml
+  formatter) requires them stripped -> every npm proto repo release
+  pipeline failed at format.check
+- MY FAULT: I ran bazel build+test but NOT format.check before merging/
+  tagging. MANDATORY RULE from now on: in every repo that has
+  //tools/format, run `bazel run //tools/format:format.check` (or
+  //tools/format:format to fix) BEFORE declaring a repo green - build+test
+  alone is NOT enough
+- fix: `bazel run //tools/format:format` (rewrites lock), commit, tag patch
+- user manually patched 8 (v1.0.1 / email v1.12.1); agent patched the
+  remaining 3 npm repos: user/content/billingstripe -> v1.0.1
+- the 5 github-only internal/proto repos were format-clean (no lock
+  changes); their v1.0.0 tag failures were NOT format -> likely UI cluster
+  switch; retry build, no re-tag
+
+## final proto versions (stage 5 must consume these)
+
+| repo | version |
+|---|---|
+| global-proto | v2.25.0 |
+| earth-user-service-proto | v1.0.2 |
+| earth-user-service-internal-proto | v1.0.1 |
+| earth-content-service-proto | v1.0.2 |
+| earth-email-service-proto | v1.12.2 |
+| earth-email-service-internal-proto | v1.0.0 |
+| earth-emailmailgun-service-proto | v1.0.1 |
+| earth-iam-service-proto | v1.0.2 |
+| earth-language-service-proto | v1.0.2 |
+| earth-authorization-service-proto | v1.0.2 |
+| earth-authentication-service-proto | v1.0.2 |
+| earth-billing-service-proto | v1.0.2 |
+| earth-billing-service-internal-proto | v1.0.1 |
+| earth-billingstripe-service-proto | v1.0.2 |
+| earth-billingrevenuecat-service-proto | v1.0.1 |
+| earth-resourcemanager-service-proto | v1.0.2 |
+| earth-storage-service-proto | v1.0.2 |
+
+Cross-dep audit result: user-internal-proto consumed user-proto v0.32.0 +
+global-proto v2.23.0 -> bumped (user-proto v1.0.1, global v2.25.0). ALL
+other proto repos also pinned global_proto v2.23.0 in MODULE.bazel
+git_override (+go.mod where present) while npm was already 2.25.0 -> all
+bumped to v2.25.0, gazelle+build+test+format.check green, new patch tags
+(table above). email-internal has no proto deps (rules only). Remaining
+nested pin: user-internal consumes user-proto v1.0.1 (not v1.0.2) - fine,
+root git_override for global_proto wins over transitive; no churn loop.
+MANDATORY stage-5 rule: check MODULE.bazel git_override + go.mod pins for
+ALL proto deps, not just npm package.json.
+
+## global-tfmodule-gsa + global-tfmodule-ksa (stage 4 stragglers, caught by user)
+
+- both were MISSED in the stage-4 batch (README marked them DONE but only
+  versions.tf/tflint had been updated on main by user; repo migration was
+  missing). Migrated on chore/loeffel-io/0010: rules v0.17.18 -> v0.19.14,
+  .bazelversion 6.4.0 -> 6.6.0 (WORKSPACE repos), .bazelrc GITHUB_TOKEN,
+  pipeline -> agent-stack-k8s (6.6.0 image 014c9027, cache bucket
+  mindful-global-tfmodule-<name>-bazel-production-eu-1, KSA
+  global-tfmodule-<name>-production). bazel build+test PASS
+- cross-repo added: global-base grants on both module GSAs
+  (global-tfmodule-<name>-p), buildkite-base KSA files + BUILD entries
+- applies PENDING: blocked on missing ADC
+  (~/.config/gcloud/application_default_credentials.json GONE - likely
+  consumed by the npmrc auth flow earlier; user must run
+  `gcloud auth application-default login`), then: global-base tp apply ->
+  buildkite-base tp apply (bazel clean + tp -- init first) + UI cluster
+  switch for both pipelines
+- NOTE: gsa module main.tf appends -eu-1 + location EU itself (that IS the
+  v0.9.0 behavior); module repo tags v0.9.0 already exist - after this
+  migration lands, next module release tag continues from v0.9.x
