@@ -114,16 +114,16 @@ important info. during a rules_js bazel bug you need to authenticate npmrc with 
 
 ### stage 5
 
-STATUS: stages 1-4 DONE. All 0010 branches for stages 1-3 merged to main + deleted; production TAG BUILDS ALL GREEN (global-base v0.8.0, earth-base v1.7.0, buildkite-base + 15 stage-3 repos v1.0.0) - production is deployed. All proto packages released + verified in AR. Open: rules/global-generics/dart-registry branch merges, tfmodule-gsa/ksa applies (ADC), tmp dev DNS revert, stripe duplicate cleanup, app-base production SHA hashes. Next: stage 5 below.
+STATUS: stages 1-4 DONE. All 0010 branches for stages 1-3 merged to main + deleted; production TAG BUILDS ALL GREEN (global-base v0.8.0, earth-base v1.7.0, buildkite-base + 15 stage-3 repos v1.0.0) - production is deployed. All proto packages released + verified in AR. Stage 4 fully merged+cleaned (no 0010 branches left anywhere; tfmodules applied). Stripe duplicate cleanup DONE. Only open: tmp dev DNS revert (later). Next: stage 5 below.
 
 ```text
+/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-language-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billing-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-iam-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingstripe-service
-/Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-user-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-storage-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-email-service

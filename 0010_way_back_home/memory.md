@@ -873,3 +873,23 @@ ALL proto deps, not just npm package.json.
   unmerged 0010 branches, tfmodule-gsa/ksa applies (ADC) + releases,
   tmp dev DNS fallback revert, stripe duplicate cleanup, app-base
   production SHA hashes
+
+## stage 4 branch cleanup DONE
+
+- audit showed ALL stage-4 0010 work already in main (ahead=0 everywhere;
+  user had merged rules/global-generics/dart-registry/tfmodule-gsa/ksa +
+  applied the tfmodules). Cleanup: all repos on main, stale local 0010
+  branches deleted, global-ui remote 0010 branch deleted. NO 0010 branches
+  left in ANY repo (stages 1-4 all merged+cleaned)
+- clarifications from user: dns revert LATER (still pending!), app-base
+  production SHA hashes STAY as-is (done), stripe cleanup = archiving the
+  orphaned duplicate products/webhooks in the stripe dashboards from the
+  import dance (user unsure - LOW PRIO, purely cosmetic in stripe UI)
+- post-merge tag state: rules v0.23.2, global-generics v0.43.0,
+  tfmodule-gsa/ksa v0.9.0 (pre-migration tags; if a release with migrated
+  pipeline is wanted, user tags new versions - gsa/ksa module CONSUMERS pin
+  ?ref=v0.9.0 which still resolves fine), dart-registry untagged (branch
+  deploys only)
+- NEXT: stage 5 (17 service repos)
+- stripe duplicate cleanup DONE by user (orphaned products/webhooks removed
+  from the dashboards). Stripe migration fully closed.
