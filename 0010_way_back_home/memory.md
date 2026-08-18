@@ -8,10 +8,10 @@ repo migration.
 
 | repo | branch | state |
 |---|---|---|
-| base | chore/loeffel-io/0010 | DONE incl buildkite split (user committed: buildkite_base_production.tf, global_base_production.tf, multi-project vars.bzl). No pipeline.yml by design (bootstrap) |
-| global-base | chore/loeffel-io/0010 | DONE incl pipeline agent-stack-k8s + v0.9.0 refs + bazel 6.6.0 |
-| earth-base | chore/loeffel-io/0010 | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
-| buildkite-base | chore/loeffel-io/0010 | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
+| base | main (0010 merged, branch deleted) | DONE incl buildkite split (user committed: buildkite_base_production.tf, global_base_production.tf, multi-project vars.bzl). No pipeline.yml by design (bootstrap) |
+| global-base | main (0010 merged, branch deleted) | DONE incl pipeline agent-stack-k8s + v0.9.0 refs + bazel 6.6.0 |
+| earth-base | main (0010 merged, branch deleted) | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
+| buildkite-base | main (0010 merged, branch deleted) | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
 | earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE + applied by user (repo, buildkite-base KSAs, earth-base WI grants, UI cluster switch, rules v0.19.11) |
 | earth-authorization-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
@@ -835,3 +835,13 @@ ALL proto deps, not just npm package.json.
 - user-internal-proto v1.0.3 RELEASE CONFIRMED. All proto releases final +
   released: see version table (user-proto v1.0.3, user-internal v1.0.3,
   global-ui v1.0.0, rest unchanged)
+
+## stage 1+2 branches MERGED + DELETED
+
+- base/global-base/earth-base/buildkite-base: 0010 merged into main
+  (branches were ahead-only, clean, no conflicts), pushed, branch deleted
+  locally + remotely. All 4 repos now on main.
+- note: global-base + buildkite-base tfmodule grants/KSAs were committed by
+  user before the merge (working trees were clean at merge time)
+- stage 3 base repos (earth-*-base, billingstripe-config) still on their
+  0010 branches - NOT yet merged
