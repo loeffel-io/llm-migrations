@@ -832,3 +832,6 @@ ALL proto deps, not just npm package.json.
 - user-internal-proto bumped to user-proto v1.0.3 (MODULE.bazel bazel_dep +
   git_override + go.mod), verified, tagged v1.0.3 (final)
 - global-ui RELEASED v1.0.0 (user merged+tagged) - global-ui DONE incl release
+- user-internal-proto v1.0.3 RELEASE CONFIRMED. All proto releases final +
+  released: see version table (user-proto v1.0.3, user-internal v1.0.3,
+  global-ui v1.0.0, rest unchanged)
