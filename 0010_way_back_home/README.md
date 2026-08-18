@@ -116,7 +116,6 @@ important info. during a rules_js bazel bug you need to authenticate npmrc with 
 
 STATUS: stage 4 done + verified (all proto npm packages in AR confirmed). PAUSED before stage 5 - see memory.md checkpoint for the resume plan (tfmodule applies + ADC, unmerged branches, dev DNS revert).
 
-
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-content-service
@@ -135,6 +134,47 @@ STATUS: stage 4 done + verified (all proto npm packages in AR confirmed). PAUSED
 /Users/loeffel/go/src/github.com/mindful-hq/earth-website-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-hub-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-service
+```
+
+the new mindful tenant ids are:
+
+```text
+commit 623335c7dd6cd8c9ef47c0ea3d8535845e212278
+Author: Lucas Löffel <lucas@loeffel.io>
+Date:   Tue Aug 18 09:51:30 2026 +0200
+
+    chore: bump tenant id
+
+diff --git a/BUILD.bazel b/BUILD.bazel
+index e9a09d3..0cf1590 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -200,16 +200,23 @@ vite_env = {
+         "VITE_MINDFUL_USER": "$(MINDFUL_USER)",
+         "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyAEJ899JBBnZRcfZpLunANoVBwT9qVP1yI",  # public key
+         "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "$(MINDFUL_USER).app.dev.mindful.com",  # TODO: custom domain
+-        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-sijsm",  # TODO: load from project
++        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-3kqub",  # TODO: load from project
+         "VITE_STRIPE_PUBLIC_KEY": "$(MINDFUL_USER_STRIPE_PUBLIC_KEY)",
+     },
+     "staging": {
+         "VITE_DOMAIN": "staging.mindful.com",  # backend suffix
+         "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyCmI50JGS5lUGtUafdUBcBPXd67VzAFcOU",  # public key
+         "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.staging.mindful.com",  # TODO: custom domain
+-        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-i0u7b",  # TODO: load from project
++        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-s4qzq",  # TODO: load from project
+         "VITE_STRIPE_PUBLIC_KEY": "pk_test_51T0eN241t1X8B9kJbBSvOU3u6XGD1BL7LVKPKiY74rb8bT562N6hRFUHCpWPhVgwFusJj2a3rRKD1Z4SrlaK3R0D00ORY0qrqI",
+     },
++    "production": {
++        "VITE_DOMAIN": "mindful.com",  # backend suffix
++        "VITE_FIREBASE_AUTH_API_KEY": "xxx",  # public key
++        "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.mindful.com",  # TODO: custom domain
++        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-ru4mc",  # TODO: load from project
++        "VITE_STRIPE_PUBLIC_KEY": "xxx",
++    },
+ }
+
+ vite_bin.vite(
 ```
 
 ## resources

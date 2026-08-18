@@ -13,21 +13,21 @@ repo migration.
 | earth-base | main (0010 merged, branch deleted) | DONE (dev+staging+production, pipeline, v0.9.0, bazel 6.6.0) - NS rrdatas lazy (stage 3) |
 | buildkite-base | main (0010 merged, branch deleted) | DONE (cluster/nat/ksa/helm + foreign KSAs for global-base-production, earth-base-dev/staging/production in own tf files, fake-gsa pattern, ns buildkite) |
 | buildkite (old repo) | - | legacy us-central1 repo, superseded by buildkite-base, do not touch |
-| earth-openfga-base | chore/loeffel-io/0010 | STAGE 3 DONE + applied by user (repo, buildkite-base KSAs, earth-base WI grants, UI cluster switch, rules v0.19.11) |
-| earth-authorization-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
-| earth-iam-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
-| earth-user-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
-| earth-authentication-base | chore/loeffel-io/0010 (BASED ON auth-to-authentication BRANCH, not main!) | STAGE 3 DONE incl .bazelrc (pushed) + 63-char bucket fix (uncommitted). earth-base earth_auth_base.tf removed (uncommitted there) |
-| earth-content-base | chore/loeffel-io/0010 | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, .bazelrc; prod db-custom-1-3840; bucket lengths ok). Needs: user apply + UI cluster switch |
-| earth-resourcemanager-base | chore/loeffel-io/0010 | STAGE 3 DONE (prod db-custom-1-3840; proto bucket 63-char substr fix) |
-| earth-email-base | chore/loeffel-io/0010 | STAGE 3 DONE (2 services: email+emailmailgun; MAILGUN provider wgebis/mailgun 0.7.7 must stay in versions.tf; prod db-g1-small; internal-proto bucket 63-char fix) |
-| earth-billing-base | chore/loeffel-io/0010 | STAGE 3 DONE (4 units: billing+billingrevenuecat+billingstripe+billingstripe-config; billingstripe has redis -eu-1; prod db-custom-1-3840; revenuecat-proto + billing-internal-proto bucket 63-char fixes) |
-| earth-storage-base | chore/loeffel-io/0010 | STAGE 3 DONE (prod db-custom-1-3840; RAW google_storage_bucket data buckets -> -eu-1 + location US->EU, missed initially) |
-| earth-website-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto; single service) |
-| earth-language-base | chore/loeffel-io/0010 | STAGE 3 DONE (proto tf w/ hub+app+website readers commented; GSA short-name fix was MISSED in batch, caught by user apply error: account_id >30 chars - fixed service/impl/proto to earth-language-s-<e> pattern) |
-| earth-hub-base | chore/loeffel-io/0010 | STAGE 3 DONE (no sql/proto) |
-| earth-app-base | chore/loeffel-io/0010 | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
-| earth-billingstripe-config | chore/loeffel-io/0010 | DONE + APPLIED BY USER all envs (full recipe; no gcloud resources of its own - stripe products/prices/portal/webhooks; production main.tf replicated from staging w/ apex domains billingstripe.mindful.com + app.mindful.com; KEEP stripe/stripe + lukasaron/stripe (stripe-third-party) 3.4.1 providers; dev pipeline needs MINDFUL_USER=master + MINDFUL_USER_REVENUECAT_APP_ID=app24d412ed4b as container env in podSpec; its GSA earth-billingstripe-c-<e> is OWNED BY earth-billing-base earth_billingstripe_config.tf -> serviceAccountAdmin grants added THERE (not earth-base); buildkite-base KSA files earth_billingstripe_config_{dev,staging,production}.tf added; stripe resources imported into new state - see stripe import section). Remaining: user UI cluster switch + archive orphaned duplicate stripe products/webhooks |
+| earth-openfga-base | main (0010 merged, branch deleted) | STAGE 3 DONE + applied by user (repo, buildkite-base KSAs, earth-base WI grants, UI cluster switch, rules v0.19.11) |
+| earth-authorization-base | main (0010 merged, branch deleted) | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, UI cluster switched) |
+| earth-iam-base | main (0010 merged, branch deleted) | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, ZONAL+MYSQL_8_4, prod db-g1-small). Needs: user apply + UI cluster switch |
+| earth-user-base | main (0010 merged, branch deleted) | STAGE 3 DONE (full recipe, production replicated, proto+internal-proto tf, KSAs, grants). Needs: user apply + UI cluster switch |
+| earth-authentication-base | main (0010 merged, branch deleted) | STAGE 3 DONE incl .bazelrc (pushed) + 63-char bucket fix (uncommitted). earth-base earth_auth_base.tf removed (uncommitted there) |
+| earth-content-base | main (0010 merged, branch deleted) | STAGE 3 DONE (full recipe, production replicated, proto tf, KSAs, grants, .bazelrc; prod db-custom-1-3840; bucket lengths ok). Needs: user apply + UI cluster switch |
+| earth-resourcemanager-base | main (0010 merged, branch deleted) | STAGE 3 DONE (prod db-custom-1-3840; proto bucket 63-char substr fix) |
+| earth-email-base | main (0010 merged, branch deleted) | STAGE 3 DONE (2 services: email+emailmailgun; MAILGUN provider wgebis/mailgun 0.7.7 must stay in versions.tf; prod db-g1-small; internal-proto bucket 63-char fix) |
+| earth-billing-base | main (0010 merged, branch deleted) | STAGE 3 DONE (4 units: billing+billingrevenuecat+billingstripe+billingstripe-config; billingstripe has redis -eu-1; prod db-custom-1-3840; revenuecat-proto + billing-internal-proto bucket 63-char fixes) |
+| earth-storage-base | main (0010 merged, branch deleted) | STAGE 3 DONE (prod db-custom-1-3840; RAW google_storage_bucket data buckets -> -eu-1 + location US->EU, missed initially) |
+| earth-website-base | main (0010 merged, branch deleted) | STAGE 3 DONE (no sql/proto; single service) |
+| earth-language-base | main (0010 merged, branch deleted) | STAGE 3 DONE (proto tf w/ hub+app+website readers commented; GSA short-name fix was MISSED in batch, caught by user apply error: account_id >30 chars - fixed service/impl/proto to earth-language-s-<e> pattern) |
+| earth-hub-base | main (0010 merged, branch deleted) | STAGE 3 DONE (no sql/proto) |
+| earth-app-base | main (0010 merged, branch deleted) | STAGE 3 DONE (earth_app.tf firebase apple/android apps; production ids staging->com.mindful.appx, SHA HASHES COPIED FROM STAGING - user must replace with production signing certs; commented google-play-notifications gsa block left as-is uncommitted-by-user) |
+| earth-billingstripe-config | main (0010 merged, branch deleted) | DONE + APPLIED BY USER all envs (full recipe; no gcloud resources of its own - stripe products/prices/portal/webhooks; production main.tf replicated from staging w/ apex domains billingstripe.mindful.com + app.mindful.com; KEEP stripe/stripe + lukasaron/stripe (stripe-third-party) 3.4.1 providers; dev pipeline needs MINDFUL_USER=master + MINDFUL_USER_REVENUECAT_APP_ID=app24d412ed4b as container env in podSpec; its GSA earth-billingstripe-c-<e> is OWNED BY earth-billing-base earth_billingstripe_config.tf -> serviceAccountAdmin grants added THERE (not earth-base); buildkite-base KSA files earth_billingstripe_config_{dev,staging,production}.tf added; stripe resources imported into new state - see stripe import section). Remaining: user UI cluster switch + archive orphaned duplicate stripe products/webhooks |
 | everything else | - | STAGE 3 COMPLETE - all 14 base repos + billingstripe-config done. next: stage 4 (gsa+ksa tfmodules already DONE per README) |
 
 ## the standard migration recipe (per repo)
@@ -845,3 +845,13 @@ ALL proto deps, not just npm package.json.
   user before the merge (working trees were clean at merge time)
 - stage 3 base repos (earth-*-base, billingstripe-config) still on their
   0010 branches - NOT yet merged
+
+## stage 3 branches MERGED + DELETED
+
+- all 15 stage-3 repos (14 earth-*-base + billingstripe-config): 0010 merged
+  into main, pushed, branches deleted local+remote. All on main now.
+- pre-merge fixes: billingstripe-config had my uncommitted tflint 0.39.0
+  audit fix -> tested + committed first; authentication behind=1 was just
+  the auth-to-authentication PR merge commit (shared content, clean merge)
+- ALL 0010 branches everywhere are now merged+deleted (stages 1-4 except:
+  rules/global-generics/dart-registry still on unmerged 0010 branches)
