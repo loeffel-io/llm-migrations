@@ -136,45 +136,33 @@ STATUS: stage 4 done + verified (all proto npm packages in AR confirmed). PAUSED
 /Users/loeffel/go/src/github.com/mindful-hq/earth-app-service
 ```
 
-the new mindful tenant ids are:
+the new mindful tenant and stripe informations are:
 
 ```text
-commit 623335c7dd6cd8c9ef47c0ea3d8535845e212278
-Author: Lucas Löffel <lucas@loeffel.io>
-Date:   Tue Aug 18 09:51:30 2026 +0200
-
-    chore: bump tenant id
-
-diff --git a/BUILD.bazel b/BUILD.bazel
-index e9a09d3..0cf1590 100644
---- a/BUILD.bazel
-+++ b/BUILD.bazel
-@@ -200,16 +200,23 @@ vite_env = {
-         "VITE_MINDFUL_USER": "$(MINDFUL_USER)",
-         "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyAEJ899JBBnZRcfZpLunANoVBwT9qVP1yI",  # public key
-         "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "$(MINDFUL_USER).app.dev.mindful.com",  # TODO: custom domain
--        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-sijsm",  # TODO: load from project
-+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-3kqub",  # TODO: load from project
-         "VITE_STRIPE_PUBLIC_KEY": "$(MINDFUL_USER_STRIPE_PUBLIC_KEY)",
-     },
-     "staging": {
-         "VITE_DOMAIN": "staging.mindful.com",  # backend suffix
-         "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyCmI50JGS5lUGtUafdUBcBPXd67VzAFcOU",  # public key
-         "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.staging.mindful.com",  # TODO: custom domain
--        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-i0u7b",  # TODO: load from project
-+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-s4qzq",  # TODO: load from project
-         "VITE_STRIPE_PUBLIC_KEY": "pk_test_51T0eN241t1X8B9kJbBSvOU3u6XGD1BL7LVKPKiY74rb8bT562N6hRFUHCpWPhVgwFusJj2a3rRKD1Z4SrlaK3R0D00ORY0qrqI",
-     },
-+    "production": {
-+        "VITE_DOMAIN": "mindful.com",  # backend suffix
-+        "VITE_FIREBASE_AUTH_API_KEY": "xxx",  # public key
-+        "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.mindful.com",  # TODO: custom domain
-+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-ru4mc",  # TODO: load from project
-+        "VITE_STRIPE_PUBLIC_KEY": "xxx",
-+    },
- }
-
- vite_bin.vite(
+vite_env = {
+    "dev": {
+        "VITE_DOMAIN": "dev.mindful.com",  # backend suffix
+        "VITE_MINDFUL_USER": "$(MINDFUL_USER)",
+        "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyDUxxmcuuo1QhJm_R5sj2BGmJ8pq7GyD-0",  # public key
+        "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "$(MINDFUL_USER).app.dev.mindful.com",  # TODO: custom domain
+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-3kqub",  # TODO: load from project
+        "VITE_STRIPE_PUBLIC_KEY": "$(MINDFUL_USER_STRIPE_PUBLIC_KEY)",
+    },
+    "staging": {
+        "VITE_DOMAIN": "staging.mindful.com",  # backend suffix
+        "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyCZsxgTr-En32NhfJEErq1T3sn3AMstkzk",  # public key
+        "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.staging.mindful.com",  # TODO: custom domain
+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-s4qzq",  # TODO: load from project
+        "VITE_STRIPE_PUBLIC_KEY": "pk_test_51T0eN241t1X8B9kJbBSvOU3u6XGD1BL7LVKPKiY74rb8bT562N6hRFUHCpWPhVgwFusJj2a3rRKD1Z4SrlaK3R0D00ORY0qrqI",
+    },
+    "production": {
+        "VITE_DOMAIN": "mindful.com",  # backend suffix
+        "VITE_FIREBASE_AUTH_API_KEY": "AIzaSyBRMwvJpAm7SuSXT90QiP4pU5yRU8tzV9Y",  # public key
+        "VITE_FIREBASE_AUTH_AUTH_DOMAIN": "app.mindful.com",  # TODO: custom domain
+        "VITE_FIREBASE_AUTH_TENANT_ID": "mindful-ru4mc",  # TODO: load from project
+        "VITE_STRIPE_PUBLIC_KEY": "pk_live_51OUa4UKKzJqNzCBzK0BUvnDK5vWrQEdIjHZ2MfJUMLR8W7HYoP1UKHW88MdhPRRqyqa1RDOqMbOtOufiJ7yzLEHe00HeK7SYk4",
+    },
+}
 ```
 
 ## resources
