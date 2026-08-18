@@ -893,3 +893,46 @@ ALL proto deps, not just npm package.json.
 - NEXT: stage 5 (17 service repos)
 - stripe duplicate cleanup DONE by user (orphaned products/webhooks removed
   from the dashboards). Stripe migration fully closed.
+
+## stage 5 started - earth-openfga-service DONE (the stage-5 recipe)
+
+CRITICAL RULES FIX FIRST: rules main (MODULE line v0.22+) had LOST the
+`-eu-1` in gcloud_lib.sh gcloud_gke_auth cluster name (v0.19.14 WORKSPACE
+line had it; lost in the kubectl/gcloud upgrade commit). Fixed on main ->
+rules v0.23.3. ALL stage-5 repos must pin rules >= v0.23.3 or kubectl auth
+fails against earth-gke-<env>-eu-1.
+
+earth-openfga-service recipe (template for other 16 service repos):
+1. git fetch + pull main first, branch chore/loeffel-io/0010
+2. vars.bzl: region europe-west3 (docker_registry derives from it)
+3. deployments/{dev,staging,production}/vars.bzl: project ids -504915
+4. MODULE.bazel: rules git_override + bazel_dep -> v0.23.3
+5. image.bzl: AR repo path needs -eu-1 (`-openfga-service-<env>-eu-1/`)
+6. cmd BUILD.bazel k8s substitutions:
+   - dbHost sql instance name + "-eu-1" (instances renamed in base repos)
+   - dbPrivateIp -> per-README mysql ip (openfga 172.17.0.2 all envs;
+     others per README stage-3 lines, e.g. user 172.17.0.10)
+   - PRODUCTION templates did not exist -> replicate staging block
+     (env_staging -> env_production), add production to service_account
+     dict, load production vars.bzl
+7. deployments/production/BUILD.bazel: replicate from staging (was stub
+   with only files filegroup)
+8. pipeline: agent-stack-k8s, 8.6.0 digest 6a226aeb, buckets -eu-1
+   (service bazel buckets exist via base-repo gsa module), dev container
+   env MINDFUL_USER=master, serviceAccountName earth-<svc>-service-<env>
+9. cross-repo NEW for stage 5 (SERVICE ksa, distinct from base ksa!):
+   - owning base repo: serviceAccountAdmin grant on the SERVICE gsa
+     (gsa_earth_<svc>_service_<env>) for buildkite-base-p, ALL 3 ENVS
+     (earth-openfga-base earth_openfga_service.tf all envs)
+   - buildkite-base: earth_<svc>_service_{dev,staging,production}.tf KSA
+     files (KSA name earth-<svc>-service-<env> = pipeline SA, gsa email
+     earth-<svc>-s-<e>@earth-<env>-504915) + BUILD entries
+10. bazel build+test+format.check (buildifier reformats BUILD after edits -
+    run //tools/format:format once) + validate base repo (td/ts/tp) +
+    buildkite-base tp
+11. apply order: base repo (grants, all envs) -> buildkite-base ->
+    UI cluster switch -> merge (dev+staging deploy) -> tag v1.0.0 (prod)
+
+openfga-service state: all green (build/test/format; openfga-base 3 envs +
+buildkite-base validate ok), UNCOMMITTED in all 3 repos. loggerDevelopment
+kept True in production (staging parity - user may want False later).
