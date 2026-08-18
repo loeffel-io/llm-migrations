@@ -114,7 +114,7 @@ important info. during a rules_js bazel bug you need to authenticate npmrc with 
 
 ### stage 5
 
-STATUS: stage 4 done + verified (all proto npm packages in AR confirmed). PAUSED before stage 5 - see memory.md checkpoint for the resume plan (tfmodule applies + ADC, unmerged branches, dev DNS revert).
+STATUS: stages 1-4 DONE. All 0010 branches for stages 1-3 merged to main + deleted; production TAG BUILDS ALL GREEN (global-base v0.8.0, earth-base v1.7.0, buildkite-base + 15 stage-3 repos v1.0.0) - production is deployed. All proto packages released + verified in AR. Open: rules/global-generics/dart-registry branch merges, tfmodule-gsa/ksa applies (ADC), tmp dev DNS revert, stripe duplicate cleanup, app-base production SHA hashes. Next: stage 5 below.
 
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-billingrevenuecat-service

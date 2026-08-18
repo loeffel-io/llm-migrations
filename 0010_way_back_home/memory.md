@@ -855,3 +855,21 @@ ALL proto deps, not just npm package.json.
   the auth-to-authentication PR merge commit (shared content, clean merge)
 - ALL 0010 branches everywhere are now merged+deleted (stages 1-4 except:
   rules/global-generics/dart-registry still on unmerged 0010 branches)
+
+## stage 1-3 production release tags (triggering buildkite production pipelines)
+
+- tagged + pushed on main: global-base v0.8.0, earth-base v1.7.0,
+  buildkite-base + all 15 stage-3 repos v1.0.0 (first-ever tags there;
+  production deploys are tag-gated `if: build.tag != null`)
+- base repo has NO pipeline (bootstrap) -> no tag
+- production has NEVER been deployed - expect first-run issues
+  (bootstrap ordering, GKE+CSM two-pass applies, missing images)
+- pipelines run FULL flow on tag builds (dev+staging deploy on branch main
+  only, so tag builds run Global+Build+production deployment)
+- ALL 18 production tag builds GREEN (user confirmed) - production is
+  deployed for stages 1-3! (global-base v0.8.0, earth-base v1.7.0,
+  buildkite-base + 15 stage-3 repos v1.0.0)
+- REMAINING before/with stage 5: rules/global-generics/dart-registry
+  unmerged 0010 branches, tfmodule-gsa/ksa applies (ADC) + releases,
+  tmp dev DNS fallback revert, stripe duplicate cleanup, app-base
+  production SHA hashes
