@@ -735,8 +735,8 @@ generics, dart-registry) on chore/loeffel-io/0010, migrated:
 | repo | version |
 |---|---|
 | global-proto | v2.25.0 |
-| earth-user-service-proto | v1.0.2 |
-| earth-user-service-internal-proto | v1.0.2 |
+| earth-user-service-proto | v1.0.3 |
+| earth-user-service-internal-proto | v1.0.3 |
 | earth-content-service-proto | v1.0.2 |
 | earth-email-service-proto | v1.12.2 |
 | earth-email-service-internal-proto | v1.0.0 |
@@ -822,3 +822,13 @@ ALL proto deps, not just npm package.json.
      package.json pin audit, format.check mandatory, npmrc auth flow
   4. revert tmp dev DNS fallback (35.244.133.111 / cdn 34.111.1.218)
   5. stripe duplicate cleanup in dashboards
+- INCIDENT 2 (user-proto npm publish ENEEDAUTH us-central1): my
+  `git checkout package.json` during the 2.24.0->2.25.0 bump dance REVERTED
+  the migrated publishConfig.registry in earth-user-service-proto only ->
+  v1.0.2 npm publish failed (github release succeeded). Fixed registry ->
+  earth-production-504915/...-eu-1, tagged v1.0.3 (now the final user-proto
+  version). All other 12 npm repos verified europe-west3. LESSON: after any
+  `git checkout <file>`, re-verify ALL migrations in that file
+- user-internal-proto bumped to user-proto v1.0.3 (MODULE.bazel bazel_dep +
+  git_override + go.mod), verified, tagged v1.0.3 (final)
+- global-ui RELEASED v1.0.0 (user merged+tagged) - global-ui DONE incl release
