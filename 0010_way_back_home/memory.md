@@ -975,6 +975,51 @@ kept True in production (staging parity - user may want False later).
   service repo, check for the LATEST chore/loeffel-io/00XX branch and base
   on that (repos carry in-flight sequential migration branches)
 
+## INCIDENT 2: openfga staging still failing after MeshConfig fix (FIXED in code)
+
+- symptom (logs4.csv): cloud-sql-proxy fetches connectSettings fine (443 +
+  metadata egress OK) but every dial to 172.17.0.2:3307 dies during TLS
+  handshake with EOF / "connection reset by peer" -> openfga migrate
+  "invalid connection" crash loop
+- root cause: cmd/<svc>/egress.yaml mysql ServiceEntry reused host
+  `sqladmin.googleapis.com`, which the first ServiceEntry already defines
+  with resolution DNS on 443. Istio merges same-host ServiceEntries
+  (cross-resource semantics undefined); new CSM control plane programs the
+  DNS/443 definition and drops the addresses+3307 TCP passthrough ->
+  REGISTRY_ONLY blackholes 3307. Old us-central1 istiod happened to order
+  it favorably (same yaml worked for years with 10.79.x/10.91.x IPs)
+- evidence: the other two ServiceEntries in the same file DO work
+  (metadata 169.254.169.254 STATIC, googleapis 443 DNS) - only the
+  duplicate-host one is dead. envoy accepts the TCP connect locally then
+  resets = classic blackhole/mis-route signature
+- fix (earth-openfga-service, uncommitted): mysql ServiceEntry now has
+  unique host `mysql.google.internal` + `resolution: STATIC` +
+  `endpoints: [address: %{dbPrivateIp}]` - exact shape of the
+  proven-working metadata entry. build/test/format green
+- RULE for the other 16 stage-5 repos: NEVER reuse a hostname across
+  ServiceEntries; copy the fixed egress.yaml from openfga
+- DEPLOY ORDERING: user deploys manually via `mmfd` from ~/.functions
+  (NEVER edit user dotfiles!) whose order is already correct:
+  oci_push -> auth -> egress -> ingressgateway (non-openfga) -> service.
+  The PIPELINE however had service -> auth -> egress; fixed to
+  oci_push -> egress -> auth -> service in all 3 envs (uncommitted) as
+  hardening for the not-yet-used pipeline deploys. Apply same order in
+  every stage-5 service pipeline
+- REAL first-deploy failure cause (fresh namespace, correct mmfd order):
+  managed CSM (Traffic Director via meshconfig.googleapis.com) needs
+  minutes to propagate NEW ServiceEntries to sidecars; pods started
+  right after apply get blackholed (metadata refused + 3307 EOF) and
+  the migrate Fatal crashloops. A second deploy later (new sum -> new
+  ReplicaSet after TD propagated) comes up clean. Expect this once per
+  fresh env/namespace for every stage-5 service - just redeploy or
+  `kubectl rollout restart` after a few minutes, no config change needed
+- staging WORKS now (user confirmed) after egress unique-host fix +
+  second deploy; user also staged an openfga image digest bump in
+  MODULE.bazel
+- rollout: merge -> staging deploy applies SE (same name, kubectl apply
+  overwrites); with the new egress-first pipeline order fresh deploys
+  work in one pass
+
 ## INCIDENT: staging mesh broken - invalid MeshConfig field (FIXED in code)
 
 - symptom: openfga staging pod up but cloud-sql-proxy could not reach
