@@ -1004,7 +1004,14 @@ kept True in production (staging parity - user may want False later).
   The PIPELINE however had service -> auth -> egress; fixed to
   oci_push -> egress -> auth -> service in all 3 envs (uncommitted) as
   hardening for the not-yet-used pipeline deploys. Apply same order in
-  every stage-5 service pipeline
+  every stage-5 service pipeline. DONE: openfga (egress->auth->service),
+  authentication (egress->auth->ingressgateway->service, all 3 envs,
+  uncommitted; //:format + build + test green per its AGENTS.md).
+  authentication egress.yaml needed NO host fix (no sql SE, no duplicate
+  hosts). TODO for remaining 15 repos: 1) egress.yaml duplicate-host
+  check (any repo with a mysql/redis SE reusing sqladmin.googleapis.com
+  -> unique host + STATIC + endpoints like openfga), 2) pipeline kubectl
+  order service LAST
 - REAL first-deploy failure cause (fresh namespace, correct mmfd order):
   managed CSM (Traffic Director via meshconfig.googleapis.com) needs
   minutes to propagate NEW ServiceEntries to sidecars; pods started
@@ -1016,6 +1023,17 @@ kept True in production (staging parity - user may want False later).
 - staging WORKS now (user confirmed) after egress unique-host fix +
   second deploy; user also staged an openfga image digest bump in
   MODULE.bazel
+- authentication-service vars.bzl mangle FIXED (uncommitted): rename
+  branch left `-dev-382708-504915` / `-staging-382708-504915` in
+  deployments/{dev,staging}/vars.bzl -> broke impersonation
+  (earth-authentication-s-d@earth-dev-382708-504915 Gaia not found).
+  Fixed to -dev-504915/-staging-504915; production was correct. SAME
+  concatenation gotcha as billingstripe-config - grep '382708' in every
+  remaining stage-5 repo before deploying
+- openfga dev:master not working while dev:loeffel-io works: config is
+  identical per dev (same ip/db pattern); suspected old SE still in
+  earth-openfga-service-master ns (egress only redeployed for
+  loeffel-io) or TD propagation lag; else check per-dev db/iam grants
 - rollout: merge -> staging deploy applies SE (same name, kubectl apply
   overwrites); with the new egress-first pipeline order fresh deploys
   work in one pass
