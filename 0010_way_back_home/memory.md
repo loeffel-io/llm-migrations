@@ -936,3 +936,63 @@ earth-openfga-service recipe (template for other 16 service repos):
 openfga-service state: all green (build/test/format; openfga-base 3 envs +
 buildkite-base validate ok), UNCOMMITTED in all 3 repos. loggerDevelopment
 kept True in production (staging parity - user may want False later).
+
+## stage 5: earth-authentication-service DONE
+
+- SPECIAL: 0010 branch based on origin/feat/loeffel-io/auth-to-authentication-migration
+  (9 ahead of main, full auth->authentication rename incl module path,
+  cmd dirs, kubectl/oci bzl, pipeline SAs). Merge flow: that branch lands
+  WITH 0010 (like authentication-base earlier)
+- has AGENTS.md (forbids editing build/buildkite + deployments; user's
+  migration order supersedes - noted deviation). AGENTS commands used:
+  `bazel run @rules_go//go -- mod tidy && bazel run //:gazelle && bazel mod
+  tidy`, format target is `//:format` (NOT //tools/format:format)
+- recipe additions vs openfga:
+  - proto dep bumps to FINAL versions in MODULE.bazel git_overrides + go.mod
+    (authentication 1.0.2, authorization 1.0.2, resourcemanager 1.0.2,
+    email 1.12.2, user 1.0.3, user-internal 1.0.3, global_proto 2.25.0)
+  - NEW firebase tenant ids from README vite_env block:
+    dev mindful-3kqub (was mindful-sijsm), staging mindful-s4qzq (was
+    mindful-i0u7b), production mindful-ru4mc
+    (%{accountSeederMindfulTenantId})
+  - production ingressgateway domain = authentication.mindful.com (apex)
+  - no sql -> no dbHost/dbPrivateIp anywhere
+  - accountSeederSeedFirebaseUsers kept True in production (staging parity
+    - user may want False; flag on review)
+- cross-repo: grants in earth-authentication-base all 3 envs + buildkite-base
+  earth_authentication_service_{dev,staging,production}.tf KSAs
+- validate: dev/staging via tp wrapper green; production wrapper hit local
+  gcloud auth issue (account missing in prod CLOUDSDK profile - user env,
+  not config) -> verified with plain terraform validate: Success
+- all UNCOMMITTED (service repo + authentication-base + buildkite-base)
+- CORRECTION authentication-service: 0010 should have been based on
+  chore/loeffel-io/0009 (= rename branch + "chore: 0009" + cookie
+  cloudflare test), NOT the rename branch directly. Fixed by merging
+  origin/chore/loeffel-io/0009 into 0010; conflicts were only proto pins
+  (kept OUR final versions); found+fixed silent miss: MODULE.bazel
+  authorization pin was v0.10.0 on the branch (my v0.9.0-replace no-op'd)
+  -> v1.0.2. Build+test+format green, pushed. LESSON: before branching a
+  service repo, check for the LATEST chore/loeffel-io/00XX branch and base
+  on that (repos carry in-flight sequential migration branches)
+
+## INCIDENT: staging mesh broken - invalid MeshConfig field (FIXED in code)
+
+- symptom: openfga staging pod up but cloud-sql-proxy could not reach
+  metadata server (169.254.169.254 connection refused), mysql EOF loop,
+  istio-proxy "Traffic Director configuration was not found for mesh ..."
+- root cause via `gcloud container fleet mesh describe`:
+  CONFIG_VALIDATION_ERROR - istio-asm-managed ConfigMap MeshConfig has
+  `includeRequestHeadersInCheck` under envoyExtAuthzGrpc. That field only
+  exists on envoyExtAuthzHttp (grpc always sends all headers). Old
+  us-central1 istiod tolerated unknown fields; the NEW TD implementation
+  strictly validates and rejects the ENTIRE MeshConfig -> no xDS -> sidecars
+  black-hole ALL egress incl metadata server
+- fix: removed the field from earth-base main.tf ALL 3 envs (dev+prod had
+  it too - same latent bomb). validate green. user must apply td/ts/tp,
+  then `kubectl rollout restart deployment -n <ns>` for affected workloads
+  (or wait for mesh to re-push after configmap update)
+- also seen (WARNING only): MISSING_CONTROL_PLANE_CONFIG - modernization
+  config per docs link; mesh works, address later
+- LESSON: `gcloud container fleet mesh describe` is the first diagnostic
+  for mesh-wide egress failures; terraform "no changes" does NOT mean the
+  mesh accepted the config
