@@ -1052,7 +1052,11 @@ kept True in production (staging parity - user may want False later).
 ## stage 5: earth-authorization-service DONE (uncommitted)
 
 - branch chore/loeffel-io/0010 based on origin/chore/loeffel-io/0009
-  (latest 00XX branch, 5 ahead of main - per authentication lesson)
+  (latest 00XX branch, 5 ahead of main - per authentication lesson).
+  GOTCHA: `git checkout -b X origin/Y` sets upstream to origin/Y ->
+  push fails. Use `--no-track` when branching from another remote
+  branch, or fix with `git branch --unset-upstream && git push -u`
+  (done here - branch pushed)
 - has AGENTS.md: tidy = `bazel run @rules_go//go -- mod tidy && bazel run
   //:gazelle && bazel mod tidy`, format = //:format (repo ALSO has
   //tools/format:format.check for the pipeline)
@@ -1076,10 +1080,15 @@ kept True in production (staging parity - user may want False later).
   address after apply, allocator may assign differently!), pubsub
   (user-events-v1 subscription), proto descriptor-set configmap targets,
   2 oci_push targets per env
-- production service template carries STAGING openfga store/model ids
-  (01KANTDRFN293WSVKS8FF8XS1K / 01KWHN3APYA8S5C6EHM28G07D6) +
-  loggerDevelopment True - staging parity, USER TODO: production store
-  id + model id once production openfga store is seeded
+- production service template carries the NEW openfga ids from README
+  (staging store 01M0EVFRCQW64Z3XWZGFKVM3Y9 / model
+  01M0EVGBSGY1DSMGC06VJJS5K8; production store 01M0AJQP4RNMQYJMKFS97A57TM
+  / model 01M0AJRHEDFDAJQFGGKYZ66GQZ; loeffel-io ids in README come via
+  MINDFUL_USER rc). loggerDevelopment still True in production (staging
+  parity, user may flip later). PIPELINE dev env still has the OLD
+  master ids (01K7CMPKW9VHM6PTHVZBH2KT1B / 01KWHMZ2G000KBETN2P31NYXDP) -
+  README says master store/model = MISSING; update pipeline.yml once
+  user seeds the master store
 - cross-repo: earth-authorization-base (main, uncommitted) grants on
   SERVICE gsa all 3 envs; buildkite-base (main, uncommitted)
   earth_authorization_service_{dev,staging,production}.tf + BUILD
