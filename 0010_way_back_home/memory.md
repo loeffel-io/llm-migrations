@@ -1075,11 +1075,19 @@ kept True in production (staging parity - user may want False later).
   MINDFUL_USER_OPENFGA_AUTHORIZATION_MODEL_ID=01KWHMZ2G000KBETN2P31NYXDP
   (carried over from old pipeline; --define flags on every dev command)
 - SPECIAL vs openfga: redis cluster SE (redis.cluster.internal
-  10.0.0.240/29 resolution NONE - kept, subnet unchanged in new env
-  per earth-base; redisAddr 10.0.0.245:6379 kept - VERIFY the PSC
-  address after apply, allocator may assign differently!), pubsub
-  (user-events-v1 subscription), proto descriptor-set configmap targets,
-  2 oci_push targets per env
+  10.0.0.240/29 resolution NONE) + sidecar annotation
+  excludeOutboundIPRanges 10.0.0.240/29 - subnet correct per earth-base.
+  redisAddr set per README redis info: dev 10.0.0.243, staging
+  10.0.0.242, production 10.0.0.243 (:6379). pubsub (user-events-v1
+  subscription), proto descriptor-set configmap targets, 2 oci_push
+  targets per env
+- REDIS PSC ALLOCATION GOTCHA (from README redis data): billingstripe
+  redis endpoints are dev/staging 10.0.0.244, production 10.0.0.245 -
+  INSIDE the authorization subnet 10.0.0.240/29, NOT billingstripe's
+  10.0.0.248/29 (SCP allocates from any of its subnets). When migrating
+  earth-billingstripe-service: its egress SE / excludeOutboundIPRanges
+  subnet must COVER the actual endpoint (use 10.0.0.240/29 or both
+  subnets), else redis traffic gets blackholed
 - production service template carries the NEW openfga ids from README
   (staging store 01M0EVFRCQW64Z3XWZGFKVM3Y9 / model
   01M0EVGBSGY1DSMGC06VJJS5K8; production store 01M0AJQP4RNMQYJMKFS97A57TM
