@@ -165,6 +165,30 @@ vite_env = {
 }
 ```
 
+the new openfga informations are:
+
+```
+### loeffel-io
+
+Store id `01M0AJ9P3QWWV1ADYM4TME92SG`
+Authorization model id: `01M0AJAEADW66MD500ASGZFJ3M`
+
+## master
+
+Store id: `missing`
+Authorization model id: `missing`
+
+## staging
+
+Store Id `01M0EVFRCQW64Z3XWZGFKVM3Y9`
+Authorization model id: `01M0EVGBSGY1DSMGC06VJJS5K8`
+
+## production
+
+Store id: `01M0AJQP4RNMQYJMKFS97A57TM`
+Authorization model id: `01M0AJRHEDFDAJQFGGKYZ66GQZ`
+```
+
 ## resources
 
 The need to add the `-eu-1` suffix to ALL REGION SPECIFIC resources to prevent name conflicts:
@@ -234,6 +258,10 @@ test --test_env=GITHUB_TOKEN
 ```
 
 you are not allowed to do any apply or destroy.
+
+```
+
+```
 
 ```
 

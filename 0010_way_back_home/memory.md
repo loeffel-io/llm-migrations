@@ -1048,6 +1048,46 @@ kept True in production (staging parity - user may want False later).
   identical per dev (same ip/db pattern); suspected old SE still in
   earth-openfga-service-master ns (egress only redeployed for
   loeffel-io) or TD propagation lag; else check per-dev db/iam grants
+
+## stage 5: earth-authorization-service DONE (uncommitted)
+
+- branch chore/loeffel-io/0010 based on origin/chore/loeffel-io/0009
+  (latest 00XX branch, 5 ahead of main - per authentication lesson)
+- has AGENTS.md: tidy = `bazel run @rules_go//go -- mod tidy && bazel run
+  //:gazelle && bazel mod tidy`, format = //:format (repo ALSO has
+  //tools/format:format.check for the pipeline)
+- full recipe applied: vars.bzl europe-west3 + -504915 (all 3 envs, was
+  clean old ids, no 382708 mangle), MODULE.bazel+go.mod pins (rules
+  v0.23.3, global_proto 2.25.0, authorization-proto 1.0.2, user-proto
+  1.0.3, user-internal 1.0.3), image.bzl -eu-1 (BOTH image paths - repo
+  has 2nd container earth-authorizationauthorization-service, an envoy
+  ext-authz sidecar image), dbHost -eu-1, dbPrivateIp 172.17.0.12 all
+  envs, egress.yaml mysql SE unique-host fix, cloud-sql-proxy digest
+  a6eab4b8, production BUILD blocks replicated (domain apex
+  authorization.mindful.com), deployments/production/BUILD.bazel
+  replicated from staging, pipeline agent-stack-k8s with egress->auth->
+  ingressgateway->service order + dev env MINDFUL_USER=master +
+  MINDFUL_USER_OPENFGA_STORE_ID=01K7CMPKW9VHM6PTHVZBH2KT1B +
+  MINDFUL_USER_OPENFGA_AUTHORIZATION_MODEL_ID=01KWHMZ2G000KBETN2P31NYXDP
+  (carried over from old pipeline; --define flags on every dev command)
+- SPECIAL vs openfga: redis cluster SE (redis.cluster.internal
+  10.0.0.240/29 resolution NONE - kept, subnet unchanged in new env
+  per earth-base; redisAddr 10.0.0.245:6379 kept - VERIFY the PSC
+  address after apply, allocator may assign differently!), pubsub
+  (user-events-v1 subscription), proto descriptor-set configmap targets,
+  2 oci_push targets per env
+- production service template carries STAGING openfga store/model ids
+  (01KANTDRFN293WSVKS8FF8XS1K / 01KWHN3APYA8S5C6EHM28G07D6) +
+  loggerDevelopment True - staging parity, USER TODO: production store
+  id + model id once production openfga store is seeded
+- cross-repo: earth-authorization-base (main, uncommitted) grants on
+  SERVICE gsa all 3 envs; buildkite-base (main, uncommitted)
+  earth_authorization_service_{dev,staging,production}.tf + BUILD
+  entries. validate green everywhere (tp/td/ts + buildkite tp)
+- verification: mod tidy+gazelle+bazel mod tidy, build+test+format
+  green; expanded production template verified (project/AR/-eu-1/ip)
+- remaining: user apply authorization-base (3 envs) -> buildkite-base tp
+  -> buildkite UI cluster switch -> merge -> tag
 - rollout: merge -> staging deploy applies SE (same name, kubectl apply
   overwrites); with the new egress-first pipeline order fresh deploys
   work in one pass
