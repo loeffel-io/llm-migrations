@@ -915,6 +915,15 @@ earth-openfga-service recipe (template for other 16 service repos):
    - PRODUCTION templates did not exist -> replicate staging block
      (env_staging -> env_production), add production to service_account
      dict, load production vars.bzl
+6b. cmd yaml fixes (repos with sql sidecar):
+   - egress.yaml: mysql SE must NOT reuse sqladmin.googleapis.com host ->
+     unique host mysql.google.internal + resolution STATIC + endpoints
+     (copy from openfga)
+   - service.yaml cloud-sql-proxy image ->
+     @sha256:a6eab4b8c0e9da72c04a9456100ddafdeef076561e2569edcaede3e6d248d3eb
+   - pipeline kubectl order: egress -> auth -> (ingressgateway) ->
+     service LAST
+   - grep '382708' (vars.bzl concatenation mangle, hit authentication)
 7. deployments/production/BUILD.bazel: replicate from staging (was stub
    with only files filegroup)
 8. pipeline: agent-stack-k8s, 8.6.0 digest 6a226aeb, buckets -eu-1
@@ -1030,6 +1039,11 @@ kept True in production (staging parity - user may want False later).
   Fixed to -dev-504915/-staging-504915; production was correct. SAME
   concatenation gotcha as billingstripe-config - grep '382708' in every
   remaining stage-5 repo before deploying
+- CLOUD SQL PROXY IMAGE PIN (user bumped in openfga service.yaml,
+  apply to EVERY stage-5 repo with a cloud-sql-proxy sidecar):
+  gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:a6eab4b8c0e9da72c04a9456100ddafdeef076561e2569edcaede3e6d248d3eb
+  (replaces old sha256:fc224915ef435afeb5b2a9421260a0d31986d5c8b7c7f5783c7f5d5885700cd2).
+  authentication-service has no sql sidecar - n/a there
 - openfga dev:master not working while dev:loeffel-io works: config is
   identical per dev (same ip/db pattern); suspected old SE still in
   earth-openfga-service-master ns (egress only redeployed for
