@@ -208,6 +208,20 @@ pre-existing ENCRYPTED_ONLY (authorization) stays ENCRYPTED_ONLY. TIER VALUE MAP
   appear minutes AFTER gke_hub_feature_membership is ACTIVE; kubernetes_manifest
   needs CRDs at PLAN time -> fresh-project applies need two passes
   (`-target=google_gke_hub_feature_membership.servicemesh_member` first, or re-run)
+- OLD vs NEW mesh setup diff (analyzed, explains metadata flakiness):
+  old us-central1 used terraform-google-modules/kubernetes-engine//
+  modules/asm v29.0.0 (in global-tfmodule-google-cloud-gke-cluster
+  history, commit before 6c7729d) with enable_cni=true -> created
+  1) ControlPlaneRevision `asm-managed` (type managed_service, channel
+  regular) = PINNED istiod-based managed control plane, 2) asm-options
+  ConfigMap (ASM_OPTS CNI=on), 3) mesh feature WITHOUT management attr.
+  New earth-base uses only feature_membership MANAGEMENT_AUTOMATIC ->
+  Google provisioned the TD-based implementation on the fresh clusters
+  (slow xDS propagation, strict MeshConfig validation). Metadata 502/
+  503/refused = TD push gaps while envoy proxies 169.254.169.254.
+  DECISION: keep excludeOutboundIPRanges metadata bypass (Google-
+  recommended, node-local traffic); do NOT add a CPR (conflicts with
+  MANAGEMENT_AUTOMATIC, legacy provisioning path)
 - istio configmap `istio-asm-managed` in ns `istio-system`; ext-authz on
   `authorization.local:4000`
 
@@ -921,6 +935,15 @@ earth-openfga-service recipe (template for other 16 service repos):
      (copy from openfga)
    - service.yaml cloud-sql-proxy image ->
      @sha256:a6eab4b8c0e9da72c04a9456100ddafdeef076561e2569edcaede3e6d248d3eb
+   - service.yaml annotation MUST bypass metadata server interception:
+     traffic.sidecar.istio.io/excludeOutboundIPRanges include
+     169.254.169.254/32 (append to existing ranges, e.g. authorization
+     has "%{redisClusterSubnet},169.254.169.254/32"). Root cause: TD
+     mesh intercepting metadata traffic caused flaky 502/503 +
+     connection-refused token fetch errors everywhere (old in-cluster
+     ASM istiod tolerated it). ALL stage-5 services need this (also
+     no-sql repos - anything doing GCP auth). done: openfga +
+     authorization + authentication (all uncommitted)
    - pipeline kubectl order: egress -> auth -> (ingressgateway) ->
      service LAST
    - grep '382708' (vars.bzl concatenation mangle, hit authentication)
