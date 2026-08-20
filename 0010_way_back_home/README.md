@@ -116,6 +116,20 @@ important info. during a rules_js bazel bug you need to authenticate npmrc with 
 
 STATUS: stages 1-4 DONE. All 0010 branches for stages 1-3 merged to main + deleted; production TAG BUILDS ALL GREEN (global-base v0.8.0, earth-base v1.7.0, buildkite-base + 15 stage-3 repos v1.0.0) - production is deployed. All proto packages released + verified in AR. Stage 4 fully merged+cleaned (no 0010 branches left anywhere; tfmodules applied). Stripe duplicate cleanup DONE. Only open: tmp dev DNS revert (later). Next: stage 5 below.
 
+STAGE 5 PROGRESS: openfga DONE (deployed, staging worked pre-mesh-incident), authentication DONE (code, uncommitted), authorization DONE (code, pushed branch chore/loeffel-io/0010). Remaining 14 service repos pending. Per-repo recipe + all learnings in memory.md ("stage 5 recipe" + "6b cmd yaml fixes" sections).
+
+IMPORTANT MESH LEARNINGS (new europe-west3 clusters run Cloud Service Mesh with the TRAFFIC_DIRECTOR control plane implementation, NOT istiod - strict config validation, ONE invalid resource blackholes the WHOLE mesh; see memory.md INCIDENT 1-3b):
+
+1. istio-asm-managed MeshConfig: `includeRequestHeadersInCheck` (invalid on envoyExtAuthzGrpc) + `tracing: stackdriver` (unsupported) removed in earth-base
+2. EnvoyFilter TD restrictions: only extensions local_ratelimit/grpc_web/compressor/lua allowed; only INSERT_FIRST or INSERT_BEFORE-router; no portNumber/subFilter-non-router matches; lua only via default_source_code.inline_string. jwt-cookie-to-authorization-header EnvoyFilter REWRITTEN TD-compliant in earth-base (cookie login preserved)
+3. grpc_json_transcoder EnvoyFilter is UNSUPPORTED on TD -> removed from authorization + authentication service.yaml (REST/JSON debug endpoints dead for now; restore later via grpc-gateway in-app or Google support allowlist request). CHECK EVERY stage-5 repo service.yaml for EnvoyFilters before deploying
+4. every service pod needs `traffic.sidecar.istio.io/excludeOutboundIPRanges: 169.254.169.254/32` (append to existing ranges) - TD makes metadata-server interception flaky (502/503/refused token errors)
+5. mysql ServiceEntry must NOT reuse the sqladmin.googleapis.com host -> unique host mysql.google.internal + resolution STATIC + endpoints (host collision drops the SE on TD)
+6. cloud-sql-proxy image pin: gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:a6eab4b8c0e9da72c04a9456100ddafdeef076561e2569edcaede3e6d248d3eb
+7. pipeline + mmfd deploy order: egress/auth BEFORE service; TD config propagation takes minutes - first deploy in a fresh namespace may need a later rollout restart
+8. TD diagnostics: `gcloud container fleet mesh describe` (CONFIG_VALIDATION_ERROR = mesh-wide poison), `istioctl proxy-config listeners <pod>` (3 lines = no config), EnvoyFilter status conditions must show Accepted; istioctl proxy-status does NOT work (no istiod); stuck config generation -> annotate controlplanerevision asm-managed with mesh.cloud.google.com/force-reprovision=true
+
+
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service

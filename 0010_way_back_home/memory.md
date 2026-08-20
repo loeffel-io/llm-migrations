@@ -1007,6 +1007,137 @@ kept True in production (staging parity - user may want False later).
   service repo, check for the LATEST chore/loeffel-io/00XX branch and base
   on that (repos carry in-flight sequential migration branches)
 
+## CURRENT STATE CHECKPOINT (mesh healing, session may switch here)
+
+WHERE WE ARE (staging, 2026-08-20 ~08:15 UTC):
+- CONFIG_VALIDATION_ERROR is GONE from `gcloud container fleet mesh
+  describe` (only warnings left: RequestAuthentication + stale
+  MISSING_CONTROL_PLANE_CONFIG)
+- BUT sidecars still get NO listener config (istioctl proxy-config
+  listeners = 3 lines); istio-proxy log shows clean xDS connect + SDS
+  certs, then SILENCE - no LDS/CDS, no NACKs -> TD server-side not
+  generating config after the long poisoned period
+- user annotated `controlplanerevision asm-managed -n istio-system
+  mesh.cloud.google.com/force-reprovision=true` (documented lever) ->
+  WAITING 15-20min for control plane reprovision
+- NEXT: recheck fleet describe (REVISION_READY cycles) + listener count.
+  Dozens of listeners = healed -> rollout restart openfga/authorization/
+  authentication, verify SQL connect, test cookie login via gateway.
+  Still 3 = Google support case "TD not pushing xDS after
+  CONFIG_VALIDATION_ERROR recovery" (evidence: API enabled, CPR
+  reconciled, EnvoyFilter Accepted, clean xDS stream, no NACKs)
+- checked/ruled out: trafficdirector.googleapis.com ENABLED, CPR exists
+  reconciled (asm-managed, 9d), istio-cni DaemonSet healthy (the
+  NetworkNotReady events were new-node bootstrap races), istioctl
+  proxy-status does not work on TD (no istiod - expected error)
+- AFTER staging heals: repeat on dev + production: earth-base td/tp
+  apply (EnvoyFilter rewrite + stackdriver removal), DELETE
+  grpc-json-transcoder EnvoyFilters in those clusters (kubectl get
+  envoyfilter -A), force-reprovision if pushes don't start
+
+UNCOMMITTED WORK SNAPSHOT (2026-08-20):
+- earth-base (main): deployments/{dev,staging,production}/main.tf -
+  TD-compliant EnvoyFilter rewrite + stackdriver tracing removal
+  (staging APPLIED by user; dev+production apply PENDING)
+- earth-openfga-service (0010 branch): service.yaml (metadata exclude
+  annotation; egress/pipeline/MODULE changes already committed by user)
+- earth-authorization-service (0010): service.yaml staged+modified
+  (transcoder removal + earlier fixes)
+- earth-authentication-service (0010): service.yaml staged+modified
+  (transcoder removal + metadata exclude)
+- earth-authorization-base + buildkite-base: CLEAN (user committed +
+  applied the grants/KSAs)
+
+## WHY TD - ISTIOD vs TRAFFIC_DIRECTOR background (explained to user)
+
+- managed Cloud Service Mesh has 2 control plane implementations:
+  ISTIOD (legacy, Google-hosted istiod) and TRAFFIC_DIRECTOR (new,
+  meshconfig.googleapis.com xDS). Istio API surface identical
+- old us-central1: ASM module created ControlPlaneRevision pinning the
+  istiod path -> lenient validation, seconds-fast pushes
+- new setup: only `mesh { management = MANAGEMENT_AUTOMATIC }` ->
+  Google chooses -> fresh clusters get TRAFFIC_DIRECTOR (confirmed via
+  fleet describe `implementation: TRAFFIC_DIRECTOR`). This is Google's
+  modernization direction; istiod path being phased out - do NOT try
+  to pin legacy istiod, adapt configs instead (one-time cost)
+- TD differences that bit us: strict validation (invalid resource can
+  block ALL config), extension allowlist for EnvoyFilter, minutes-slow
+  propagation, no istiod in cluster (istioctl proxy-status unusable)
+
+## INCIDENT 3b: grpc_json_transcoder EnvoyFilters also rejected by TD (FIXED)
+
+- after the jwt-cookie EnvoyFilter fix was Accepted, fleet still showed
+  CONFIG_VALIDATION_ERROR [EnvoyFilter]: the per-service
+  `%{service}-grpc-json-transcoder` EnvoyFilters (in service.yaml of
+  authorization + authentication services) were the remaining poison.
+  grpc_json_transcoder is NOT on TD's extension allowlist (only
+  local_ratelimit, grpc_web, compressor, lua) -> fully invalid ->
+  rejected -> mesh config blocked. User deleted them from the staging
+  cluster -> CONFIG_VALIDATION_ERROR GONE (only the RequestAuth
+  warning remains)
+- code fix (uncommitted): removed the EnvoyFilter document from
+  cmd/*/service.yaml in earth-authorization-service +
+  earth-authentication-service (build+format green) so redeploys do
+  not re-create them. openfga has none
+- USER DECISION: REST/JSON debug endpoints (grpc-json transcoding)
+  are wanted back LATER. Options recorded: 1) grpc-gateway in-app,
+  2) Google support request to allowlist grpc_json_transcoder,
+  3) non-mesh edge envoy. Heal-first for now
+- CHECK when migrating remaining stage-5 services: grep service.yaml
+  for `grpc-json-transcoder` / any EnvoyFilter and remove/convert
+  BEFORE deploying (a single invalid EnvoyFilter kills the whole mesh)
+- remaining follow-ups: RequestAuthentication CONFIG_VALIDATION_WARNING
+  (check resource status), MISSING_CONTROL_PLANE_CONFIG warning
+  (non-blocking, may self-heal)
+
+
+
+## INCIDENT 3: mesh-wide egress blackhole - EnvoyFilter unsupported shape on TD (FIXED)
+
+- symptom: since the mesh flipped to TD implementation, ALL egress flaky/
+  dead across ALL services incl ingressgateways; sidecars connect to xDS
+  + get SDS certs but `istioctl proxy-config listeners` = EMPTY (3 lines)
+  -> envoy has NO listener config, REGISTRY_ONLY refuses everything
+  (metadata refused pre-bypass, then 443 refused). Intermittent "worked
+  a few times" = TD validation state flapping
+- root cause via `gcloud container fleet mesh describe` staging:
+  CONFIG_VALIDATION_ERROR "Invalid Config Types: [EnvoyFilter]" - the
+  TD-based CSM control plane DOES NOT SUPPORT EnvoyFilter. earth-base
+  deployed the jwt-cookie-to-authorization-header Lua EnvoyFilter
+  (istio-system, all envs) -> whole config application failed
+- fix (earth-base, uncommitted): REWROTE the EnvoyFilter TD-compliant
+  instead of deleting it (per docs.cloud.google.com/service-mesh/docs/
+  data-plane-extensibility TD supports Lua EnvoyFilters with limits):
+  1) operation INSERT_BEFORE w/ subFilter jwt_authn -> INSERT_FIRST
+     (only INSERT_FIRST, or INSERT_BEFORE against the ROUTER filter,
+     are allowed; INSERT_FIRST still runs before jwt_authn = same
+     cookie->Authorization semantics)
+  2) removed match.listener.portNumber (only listener.filter match
+     supported); match is now just context: GATEWAY (lua only acts
+     when a jwt cookie exists - safe on all gateway listeners)
+  3) inlineCode -> default_source_code.inline_string (only supported
+     lua field; script uses no forbidden features - no httpCall/
+     filterContext/io/os; <50KB)
+  Also removed `tracing: stackdriver` from MeshConfig defaultConfig
+  (CONFIG_VALIDATION_WARNING unsupported field). validate+fmt+build
+  green all 3 envs. Cookie JWT auth PRESERVED
+- TD EnvoyFilter rules (for any future filter): applyTo HTTP_FILTER
+  only; INSERT_FIRST or INSERT_BEFORE-router only; no targetRefs/
+  filterClass/proxy/routeConfiguration/cluster/portNumber matches;
+  lua via default_source_code.inline_string only, no httpCall/
+  filterContext/io/debug/ffi, 50KB per script, 100KB + 10 patches per
+  cluster; fully-invalid resource = rejected -> can kill whole mesh
+  config. After apply: `kubectl get envoyfilter -n istio-system ... -o
+  yaml` must show status condition Accepted
+- MISSING_CONTROL_PLANE_CONFIG warning: modernization doc says create
+  a ControlPlaneRevision only if mesh channel != GKE cluster channel;
+  ns labels use istio.io/rev=asm-managed (regular) and autopilot
+  cluster channel is regular -> matches, automatic management should
+  create the CPR itself; warning is non-blocking ("mesh still working
+  but suboptimal"). If it persists after the EnvoyFilter fix, check
+  `kubectl get controlplanerevisions -n istio-system` and consider
+  the doc's step 4 manually
+
 ## INCIDENT 2: openfga staging still failing after MeshConfig fix (FIXED in code)
 
 - symptom (logs4.csv): cloud-sql-proxy fetches connectSettings fine (443 +
