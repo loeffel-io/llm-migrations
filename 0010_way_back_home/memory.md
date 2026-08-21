@@ -1393,6 +1393,35 @@ RUNBOOK (user runs, staging):
   shapes validated hard
 
 
+## RELAPSE on new cluster after authentication deploy (2026-08-21 ~13:30-16:00)
+
+- after mmfd authentication (which applied its namespace-scoped
+  ingressgateway-google-request-authentication RA + CUSTOM AP), NEW
+  proxies stopped syncing again: openfga LDS Not Found, then fresh
+  authorization pods too (old pods keep stale SYNCED). Same wedge
+  signature as old cluster. Deleting the RA/AP live did NOT unwedge
+  (poison persists server-side, same as yesterday). fleet describe
+  green the whole time
+- openfga pod template hash 668f6974b4 SYNCED at 11:00 and starved at
+  13:30 = identical spec, TD-side state confirmed
+- PRIME SUSPECT: namespace-scoped RequestAuthentication wedges TD
+  config-gen mesh-wide + poison persists after delete. Evidence: new
+  cluster was healthy until authentication deploy; authorization has
+  NO RA and synced; mesh-wide RA (istio-system) present during every
+  success = innocent
+- FIXED IN SOURCE: earth-authentication-service auth.yaml RA fully
+  commented out (JWT validation happens in-app; extauthz + ALLOW APs
+  stay). If gateway JWT validation needed later: add second jwtRule
+  to the MESH-WIDE RA instead
+- user kicked CP with force-reprovision annotate; recovery plan:
+  fresh pods after reprovision -> if still wedged, cluster
+  destroy/recreate (proven 30min clean) -> base applies -> mmfd all
+  three with RA-free authentication
+- Google case material: ns-scoped RA wedges TD mesh-wide, persists
+  after deletion, 3 clusters reproduced (old staging, dev, new
+  staging), fleet state green while proxies starve
+
+
 ## CONSOLIDATION EXECUTION LOG (live, 2026-08-20 ~12:30-13:00 UTC)
 
 
