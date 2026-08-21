@@ -1347,6 +1347,52 @@ RUNBOOK (user runs, staging):
   live-only; authorization svc dlv port removed live only
 
 
+## RESOLUTION: staging rebuilt on RAPID channel - EVERYTHING WORKS (2026-08-21 ~13:00)
+
+- user destroyed staging cluster, recreated with release_channel RAPID
+  (min_master_version 1.35 + RAPID now in staging main.tf). Google
+  auto-provisioned CLEAN: single asm-managed-rapid CPR, both webhooks
+  correct from birth, sidecar 1.21.6-asm.38 (>= 1.21 unlocks
+  fromCookies + DNS proxy). NO manual force-reprovision needed
+- dev exposed the toxins via fleet describe: CONFIG_VALIDATION_ERROR
+  [EnvoyFilter] (severity ERROR - old committed INSERT_BEFORE/
+  jwt_authn shape FAILS application on TD) + UNSUPPORTED_MULTIPLE_
+  CONTROL_PLANES. staging (old cluster) authorization stayed broken
+  even in clean-config state = written off as poisoned TD state +
+   EnvoyFilter error
+- CHANGES (all uncommitted): earth-base staging main.tf: EnvoyFilter
+  jwt-cookie COMMENTED OUT, RA mesh-wide now uses fromCookies=["jwt"]
+  (1.21 native - replaces lua filter), old istio-asm-managed cm
+  REMOVED (only rapid cm remains), all cms REGISTRY_ONLY (also dev+
+  prod), authorization SE has location=MESH_EXTERNAL (TD doesn't
+  support MESH_INTERNAL default!). openfga service.yaml: bypass
+  holdApplicationUntilProxyStarts:false removed; egress googleapis
+  back to HTTPS/DNS (was TLS/NONE experiment). authorization
+  egress.yaml: redis SE (NONE+CIDR, most TD-hostile shape) DELETED -
+  redis rides the iptables exclusion %{redisClusterSubnet} anyway.
+  authentication service.yaml: stale bypass comment removed
+- VERIFIED HEALED on new cluster (native, NO bypasses): openfga 3/3,
+  sql connected, migrations ran, listeners incl sqladmin SNI +
+  mysql:3307; authorization SYNCED with extauthz container + CUSTOM
+  AP + provider = THE ARCHITECTURE WAS NEVER THE PROBLEM; fleet
+  describe fully clean except known-harmless outputClaimToHeaders
+  warning (TD never sets x-mindful-* headers - check downstream
+  consumers someday)
+- REMAINING: authentication mmfd + verify; cookie login e2e (now via
+  fromCookies not lua!); commit 13 service repos (service.yaml port
+  fixes; leave debug strings in main.go out) + earth-base + base +
+  14 earth-*-base repos; dev+production: replicate rapid-cluster
+  rebuild OR fix in place (delete extra CPR + EnvoyFilter, keep
+  1.20-compatible config until rebuilt); remove remaining
+  excludeOutboundPorts bypasses in other service repos when deployed
+- LESSONS: TD verdicts need 5-10min waits (many false negatives from
+  impatience); `gcloud beta container fleet mesh debug proxy-status
+  --membership=X --project=Y` is THE tool; fleet describe names
+  invalid config types; TD is strict: no invalid port names (sql/dlv
+  -> tcp-*), no MESH_INTERNAL SEs, no NONE+CIDR SEs, EnvoyFilter
+  shapes validated hard
+
+
 ## CONSOLIDATION EXECUTION LOG (live, 2026-08-20 ~12:30-13:00 UTC)
 
 
