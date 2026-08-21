@@ -129,7 +129,6 @@ IMPORTANT MESH LEARNINGS (new europe-west3 clusters run Cloud Service Mesh with 
 7. pipeline + mmfd deploy order: egress/auth BEFORE service; TD config propagation takes minutes - first deploy in a fresh namespace may need a later rollout restart
 8. TD diagnostics: `gcloud container fleet mesh describe` (CONFIG_VALIDATION_ERROR = mesh-wide poison), `istioctl proxy-config listeners <pod>` (3 lines = no config), EnvoyFilter status conditions must show Accepted; istioctl proxy-status does NOT work (no istiod); stuck config generation -> annotate controlplanerevision asm-managed with mesh.cloud.google.com/force-reprovision=true
 
-
 ```text
 /Users/loeffel/go/src/github.com/mindful-hq/earth-openfga-service
 /Users/loeffel/go/src/github.com/mindful-hq/earth-authentication-service

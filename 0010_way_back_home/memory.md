@@ -1007,7 +1007,430 @@ kept True in production (staging parity - user may want False later).
   service repo, check for the LATEST chore/loeffel-io/00XX branch and base
   on that (repos carry in-flight sequential migration branches)
 
-## CURRENT STATE CHECKPOINT (mesh healing, session may switch here)
+## STAGING CLUSTER REBUILD RUNBOOK (ON HOLD - cheap path first)
+
+PLAN CHANGE: try the CHEAP PATH before any rebuild. earth-base now
+ships BOTH MeshConfig configmaps (istio-asm-managed AND
+istio-asm-managed-rapid, identical content) + release_channel REGULAR
+(uncommitted, validate+build green all envs) -> revision-agnostic:
+whichever revision Google wires, our config is read.
+CHEAP PATH steps (user):
+1. `ts -- import kubernetes_config_map_v1.kubernetes_config_map_v1_istio_asm_managed_rapid "istio-system/istio-asm-managed-rapid"`
+   (Google created it 9d ago -> import else 409; QUOTE the id - shell
+   line wrap truncated it once)
+2. `ts -- apply`
+3. `kubectl -n earth-openfga-service delete pod -l app=earth-openfga-service`
+4. 5min -> `istioctl proxy-config listeners deploy/earth-openfga-service -n earth-openfga-service | wc -l`
+CHEAP PATH ROUND 3 = THE DOC-SANCTIONED CONSOLIDATION (final plan):
+Round 2 (creating asm-managed-rapid CPR) provisioned successfully BUT
+triggered `UNSUPPORTED_MULTIPLE_CONTROL_PLANES` in fleet state - two
+CPRs are explicitly unsupported. The modernization doc "Fix multiple
+control planes" prescribes the OPPOSITE: consolidate to ONE channel
+matching the GKE cluster channel (REGULAR -> keep asm-managed), and
+EXPLICITLY sanctions kubectl-deleting the extra channel's Google-
+managed artifacts; the reconciler recreates the webhooks correctly
+once a single channel remains. THAT is the mechanism that fixes the
+stale rapid injection wiring.
+- terraform reverted (uncommitted, validate+build green): rapid CPR
+  resource + rapid configmap resource REMOVED again from earth-base
+  all envs. Both are in staging tf STATE (imported cm + created CPR)
+  -> next ts -- apply DESTROYS them from the cluster (desired!)
+- USER STEPS (staging):
+  1. ts -- apply  (destroys asm-managed-rapid CPR + istio-asm-managed-
+     rapid configmap; keeps asm-managed CPR-less setup... NOTE: no
+     asm-managed CPR in tf - it was Google-created; it stays)
+  2. doc consolidation deletes (sanctioned):
+     kubectl delete mutatingwebhookconfiguration istiod-asm-managed
+     kubectl delete mutatingwebhookconfiguration istio-revision-tag-default
+     (reconciler recreates both pointing at the single remaining
+     channel; there is no istiod-asm-managed-rapid webhook to delete;
+     env-asm-managed-rapid configmap left for the reconciler)
+  3. re-trigger reconcile: gcloud container fleet mesh update
+     --management automatic --memberships earth-gke-staging-eu-1-membership
+     --project earth-staging-504915 --location global
+  4. wait 15-20min; verify webhook recreated + URL contains
+     /controlPlanes/asm-managed/inject (NOT -rapid)
+  5. kubectl -n earth-openfga-service delete pod -l app=earth-openfga-service
+  6. verify pod annotation istio.io/rev=asm-managed + listeners populate
+- if webhooks come back rapid-wired AGAIN despite single-channel state:
+  Google bug confirmed beyond doubt -> issuetracker.google.com +
+  fallback options: cluster rebuild (runbook below) or re-add the rapid
+  CPR pair and accept UNSUPPORTED_MULTIPLE_CONTROL_PLANES warning
+  (it provisioned fine; pods held at pilot-agent wait though - CP
+  existed but config still didn't flow, possibly needed more time)
+
+
+Listeners populate = HEALED, no rebuild, same fix applies to dev/prod
+(import may or may not be needed there - check if the rapid configmap
+exists). Listeners still empty = rapid control plane broken server-side
+-> THEN rebuild below (gate at step 3 tells whether fresh clusters get
+regular or rapid wiring) or issuetracker.
+
+USER CONFIRMED: all 3 clusters (dev/staging/production) are on the
+REGULAR channel RIGHT NOW. So the explicit `release_channel REGULAR`
+in terraform matches live state = pure no-op codification on existing
+clusters (no plan churn expected beyond the block itself), and the
+rapid injection wiring is definitively STALE leftover from the 1.35
+rapid bootstrap - not an active channel setting. Also means dev +
+production very likely carry the SAME stale rapid webhooks (created
+from same terraform at similar times) -> check their
+`kubectl get mutatingwebhookconfiguration istiod-asm-managed -o yaml | grep url:`
+before deciding rebuild vs. in-place fix per cluster.
+
+DECISION: staging cluster earth-gke-staging-eu-1 gets DESTROYED +
+RECREATED. Rationale: Google's mesh provisioning is in an unrecoverable
+half-state (rapid injection webhooks on a REGULAR cluster, phantom
+asm-managed shells); patching means running forever on workarounds.
+Everything is rebuildable from code; SQL/buckets/DNS/certs live outside
+the cluster and survive. Rehearses the same procedure production will
+likely need (same terraform created its cluster - CHECK its webhook
+urls before go-live: `kubectl get mutatingwebhookconfiguration
+istiod-asm-managed -o yaml | grep url:` - rapid = same disease).
+
+TERRAFORM PREP DONE (earth-base, uncommitted, validate+fmt+build green
+all envs): 1) cluster resource now has explicit `release_channel {
+channel = "REGULAR" }` (prevents the rapid-bootstrap drift that caused
+all this; 1.35 is in REGULAR now per cluster describe), 2) removed the
+istio-asm-managed-rapid configmap duplicate again (fresh cluster will
+be regular-wired; single istio-asm-managed configmap suffices),
+3) EnvoyFilter TD-compliant rewrite + stackdriver removal retained.
+
+RUNBOOK (user runs, staging):
+1. earth-base: `ts -- destroy` the cluster + dependents. Simplest
+   reliable path: `ts -- destroy -target=google_container_cluster.cluster`
+   (terraform cascades in-cluster resources' reality away; state of
+   k8s resources in OTHER repos becomes stale-but-refreshable).
+   Watch out: gateway/certmap/global-address are cluster-external and
+   should NOT be destroyed - target only the cluster.
+2. `ts -- apply` pass 1: `-target=google_container_cluster.cluster
+   -target=google_gke_hub_membership.membership
+   -target=google_gke_hub_feature_membership.servicemesh_member`
+   then WAIT for CSM CRDs (minutes after feature ACTIVE; check
+   `kubectl get crd | grep istio`).
+3. `ts -- apply` pass 2 (full): creates istio-system configmap,
+   PeerAuth/RequestAuth/AuthorizationPolicy/EnvoyFilter, earth-base ns,
+   Gateway. May need kubeconfig refresh: `gcloud container clusters
+   get-credentials earth-gke-staging-eu-1 --region europe-west3`.
+4. VERIFY MESH WIRING BEFORE ANYTHING ELSE:
+   `kubectl get mutatingwebhookconfiguration istiod-asm-managed -o yaml | grep url:`
+   must contain /controlPlanes/asm-managed/ (NOT -rapid). If rapid
+   again despite REGULAR channel -> issuetracker.google.com, stop.
+5. all 14 earth-*-base repos: `ts -- apply` each (recreates namespaces,
+   KSAs, TLS secrets from existing state; refresh sees them gone, no
+   imports needed). bazel clean + ts -- init if stale-file gotcha.
+6. service deploys: `mmfd staging openfga authorization authentication`
+   (order in mmfd is already egress-before-service).
+7. verify: listeners populate (`istioctl proxy-config listeners ...`),
+   sql connects, cookie login works, EnvoyFilter status Accepted,
+   fleet describe clean.
+8. AFTER staging verified: consider same rebuild for dev + production
+   clusters (check their webhook urls first - if they say asm-managed
+   already, only the earth-base apply (EnvoyFilter/stackdriver/
+   release_channel) + transcoder EnvoyFilter deletion is needed).
+9. cleanup after heal: remove tmp mesh bypass annotations
+   (rg 'tmp mesh bypass' in service repos) once mesh delivers config.
+
+
+
+## BREAKTHROUGH: webhooks recreated for rapid - final alignment (2026-08-20 ~14:30)
+
+- fresh staging cluster sequence that WORKED: ts apply created our
+  asm-managed-rapid CPR (+ imported the Google-precreated
+  istio-asm-managed-rapid configmap, overwritten with OUR meshconfig);
+  Google's own asm-managed CPR disappeared during consolidation (its
+  deprovision also wiped the webhooks); then user ran on the rapid CPR:
+  `kubectl label controlplanerevision asm-managed-rapid -n istio-system mesh.cloud.google.com/managed-cni-enabled=true --overwrite`
+  `kubectl annotate controlplanerevision asm-managed-rapid -n istio-system mesh.cloud.google.com/force-reprovision=true --overwrite`
+  -> ~10min later webhooks appeared: istiod-asm-managed-rapid +
+  istio-revision-tag-default. LESSON: a bare terraform-created CPR
+  (no labels) does NOT get webhooks; the managed-cni-enabled label +
+  force-reprovision were required
+- LABEL ALIGNMENT (terraform, uncommitted): the new webhook matches
+  rev=asm-managed-rapid; our namespaces said asm-managed -> would get
+  NO sidecar. Flipped ALL istio.io/rev=asm-managed labels to
+  `"istio-injection" = "enabled"` (doc best practice, channel-agnostic,
+  matched by istio-revision-tag-default): 51 files across 14
+  earth-*-base repos + earth-base ns (all 3 envs). All validate green
+- earth-base CPR resource now carries labels
+  mesh.cloud.google.com/managed-cni-enabled=true + computed_fields
+  metadata.annotations (so the force-reprovision annotation doesn't
+  drift)
+- FINAL TARGET STATE (staging, to replicate on dev+production): single
+  CPR asm-managed-rapid (rapid mesh channel is FORCED by Google's
+  injection wiring even on REGULAR clusters - doc says channel choice
+  does not matter, GKE cluster channel governs the mesh version);
+  meshconfig istio-asm-managed-rapid (ours via terraform, import may be
+  needed); namespaces istio-injection=enabled; webhooks
+  istiod-asm-managed-rapid + tag-default
+- NEXT: verify webhook url (expect asm-managed-rapid/inject), full ts
+  apply if pending, 14 base repos ts apply (label change = in-place ns
+  update), mmfd staging openfga authorization authentication, verify
+  pod has 3 containers + revision annotation asm-managed-rapid +
+  listeners populate + sql connects
+- dev/production replication: same terraform now; the CPR label+
+  annotation kubectl commands are needed per cluster (or bake label in
+  tf - done - and only force-reprovision manually)
+
+## earth-base staging apply attempt 1: two errors + fixes (2026-08-20 ~15:00)
+
+- ERROR 1 (CPR): "Provider produced inconsistent result after apply" -
+  Google's controller re-adds label istio.io/owned-by=mesh.googleapis.com
+  right after our patch. FIX (uncommitted, all 3 envs of earth-base):
+  computed_fields now ["metadata.annotations", "metadata.labels"].
+  The managed-cni-enabled label likely DID land on the cluster (error is
+  post-apply consistency check); re-apply converges state
+- ERROR 2 (ns patch 403): earth-base-s SA cannot patch namespaces
+  (needs container.namespaces.update). ROOT CAUSE: local ts applies
+  impersonate the env SA which only has roles/container.clusterAdmin
+  (cluster ops, NOT k8s objects); CI works because buildkite-base-p has
+  roles/container.admin. Same gap caused the earlier
+  thirdPartyObjects.delete 403. FIX (uncommitted, base repo
+  deployments/production/earth_base_{dev,staging,production}.tf): added
+  roles/container.admin to the earth-base SA roles, matching buildkite
+- ORDER: 1) base repo ts -- apply (grants the role; needs an identity
+  with IAM admin on the earth projects), 2) earth-base staging
+  ts -- apply again (both resources converge in-place). Interim
+  workaround if base apply blocked: cloudshell admin
+  `kubectl label ns earth-base istio-injection=enabled istio.io/rev- --overwrite`
+  then earth-base apply only refreshes
+
+## STAGING MESH VERIFIED HEALED (2026-08-20 ~15:30)
+
+- base + earth-base + earth-openfga-base applied clean (container.admin
+  + computed_fields labels fixes worked)
+- mmfd staging openfga: pod 3/3, revision annotation asm-managed-rapid,
+  6 early restarts = startup race before envoy ready (harmless;
+  holdApplicationUntilProxyStarts now active so future pods won't race)
+- PROOF listeners populated incl our ServiceEntries: sqladmin SNI,
+  www.googleapis.com SNI, mysql.google.internal:3307 - the exact egress
+  that was blackholed before
+- PROOF configmap istio-asm-managed-rapid = OUR meshconfig
+  (REGISTRY_ONLY, extauthz authorization.local:4000, holdApplication)
+  -> rapid CP finally reads our config
+- `istioctl proxy-status` -> "unable to find any Istiod instances" is
+  EXPECTED with managed ASM (no in-cluster istiod); not an error
+- canary: re-check listeners after ~30min (old blackhole appeared at
+  first config push) before rolling authorization/authentication
+- REMAINING: earth-authorization-base + earth-authentication-base ts
+  apply (ns label flip) BEFORE mmfd of those services; then remaining
+  ~11 base repos; then remove tmp mesh bypass annotations; then
+  dev+production replication (base roles + earth-base computed_fields
+  already cover all envs; per-cluster force-reprovision annotation may
+  be needed)
+
+
+## TD CONFIG STARVATION: mesh broke again ~15:15 2026-08-20, root = Google TD (2026-08-21)
+
+- TIMELINE: 14:50 openfga pod got FULL config (listeners incl sqladmin
+  SNI, sql worked). ~15:15 authorization+authentication deploys landed
+  (CUSTOM extauthz APs, RA, ingressgateways). Since then EVERY new
+  proxy (sidecars AND ingressgateway) gets ZERO LDS/CDS from TD.
+  istio-proxy log signature: xdsproxy connects to
+  meshconfig.googleapis.com OK, SDS certs pushed OK, then NOTHING ->
+  probe errors "Failed to create grpc connection to probe app" for 60s
+  -> postStart hook (pilot-agent wait, from holdApplicationUntil
+  ProxyStarts) times out -> kubelet kills istio-proxy -> crashloop.
+  `istioctl proxy-config listeners <pod>` = 3 lines (empty). cloud-sql
+  "connection refused" to sqladmin = downstream symptom (iptables
+  redirects 443 into config-less envoy)
+- ELIMINATION LADDER (all deleted live, pod recreated between each, NO
+  effect): CUSTOM APs *-authorization, EnvoyFilter jwt-cookie-to-
+  authorization-header, RA mesh-wide (istio-system), RA
+  ...-ingressgateway-google-request-authentication, AP mesh-wide-
+  allow-nothing, meshconfig stripped to minimal ALLOW_ANY (no
+  extensionProviders), finally ALL custom istio config purged from
+  earth-base staging main.tf (removed: authorization ServiceEntry,
+  mesh-wide RA, allow-nothing AP, jwt-cookie EnvoyFilter; kept: CPR,
+  minimal cm, PeerAuth STRICT, Gateway) + applied -> STILL starved.
+  OUR CONFIG IS EXONERATED
+- final clean evidence pod: excludeOutboundPorts "443,3307" on ->
+  0 restarts, app+sql healthy (bypass), istio-proxy ready=false,
+  3 listeners. Bypass annotation = legit stopgap now, NOT related to
+  1.20 DNS limitation (sqladmin resolves via kube-dns; refused
+  happens inside envoy)
+- fleet describe LIES: REVISION_READY + dataPlaneManagement ACTIVE
+  while all proxies starve. Earlier CONFIG_VALIDATION_WARNING
+  [RequestAuthentication] was only outputClaimToHeaders unsupported-
+  field warning (Accepted), not the cause. NOTE: TD never sets
+  x-mindful-* claim headers (outputClaimToHeaders unsupported!) -
+  downstream consumers broken even when mesh works
+- TD unsupported-features doc (user found): outputClaimToHeaders,
+  EnvoyFilter (restrictions), DNS-proxy hostname resolution needs
+  sidecar >=1.21.5 (running 1.20.8 -> authorization.local /
+  mysql.google.internal istio-DNS never resolves; mysql OK via
+  addresses+STATIC IP). extauthz/CUSTOM+lua design is a bad fit for
+  TD overall
+- NEXT: file issuetracker.google.com case (managed ASM / TD): zero
+  xDS since 15:15 despite clean config, one pod provably worked at
+  14:50, fleet state green while starving. Ask whether cluster can
+  run managed-istiod implementation instead of TRAFFIC_DIRECTOR
+  (supports EnvoyFilter/extauthz/outputClaimToHeaders)
+- staging main.tf now minimal (uncommitted); dev/production main.tf
+  still have full istio config - do NOT replicate until TD case
+  resolved
+
+
+## TRUE ROOT CAUSE FOUND: invalid Service port name "sql" (2026-08-21 ~07:30)
+
+- TD builds LDS from the workload's k8s Service; a port named `sql`
+  (invalid istio protocol prefix) makes TD SILENTLY refuse to build
+  LDS/RDS for the ENTIRE proxy (CDS still SYNCED, LDS "Not Found").
+  istiod tolerates unknown names (plain TCP); TD does not. THIS was
+  the whole "no egress/blackhole" saga - not the CPR/webhook wiring
+  (that was a real but separate problem, fixed earlier), not SEs, not
+  EnvoyFilter/extauthz/RA/APs (elimination ladder proved all innocent)
+- PROOF: `kubectl patch svc earth-openfga-service -n
+  earth-openfga-service --type=json -p='[{"op":"replace","path":
+  "/spec/ports/2/name","value":"tcp-sql"}]'` + pod recreate ->
+  LDS/RDS SYNCED instantly. Working authentication ns never had a
+  sql/dlv port; broken openfga+authorization both did
+- key debug tool discovered: `gcloud beta container fleet mesh debug
+  proxy-status --membership=earth-gke-staging-eu-1-membership
+  --project earth-staging-504915` shows per-proxy CDS/LDS/RDS sync
+  (works with managed TD where istioctl proxy-status fails)
+- FIXED IN SOURCE (uncommitted): renamed `sql`->`tcp-sql`,
+  `dlv`->`tcp-dlv` in service.yaml of 13 repos: earth-{app,
+  authorization,billing,billingstripe,content,email,hub,iam,openfga,
+  resourcemanager,storage,user,website}-service
+- CLUSTER DRIFT from debugging (staging): live-patched openfga svc
+  port name (redeploy makes it consistent); DELETED live + from
+  earth-base staging main.tf: authorization SE (authorization.local),
+  mesh-wide RA, mesh-wide-allow-nothing AP, jwt-cookie EnvoyFilter;
+  meshconfig cm now minimal ALLOW_ANY. openfga ns SEs deleted live
+  but come back with next mmfd (egress.yaml unchanged). authorization
+  CUSTOM APs + authentication ingressgateway RA deleted live, come
+  back with next mmfd
+- RESTORE DECISIONS PENDING (earth-base staging main.tf): re-add
+  REGISTRY_ONLY? (was innocent) extensionProviders/extauthz + CUSTOM
+  APs + EnvoyFilter lua + outputClaimToHeaders are TD-UNSUPPORTED ->
+  auth architecture needs TD-compatible redesign OR move mesh to
+  managed-istiod implementation. mesh-wide RA jwksUri also broken
+  (identitytoolkit publicKeys = PEM not JWKS)
+- NEXT: commit+push the 13 service repos + earth-base, mmfd staging
+  openfga authorization authentication, verify LDS SYNCED + sql
+  connects + remove excludeOutboundPorts bypasses, then replicate
+  port-name fix insight to dev/production (same 13 repos deploy
+  everywhere; dev/prod earth-base main.tf still has full istio config
+  - decide restore set first)
+
+
+## DAY 2 AFTERNOON: authorization workload stuck at TD (2026-08-21 ~09-10)
+
+- full config restored in earth-base staging main.tf (REGISTRY_ONLY +
+  extensionProviders + authorization SE + mesh-wide RA original +
+  allow-nothing AP + EnvoyFilter). VERDICTS with proper 5-10min waits
+  (TD convergence is SLOW - many earlier verdicts were premature!):
+  openfga SYNCED under full config with zero SEs; authentication
+  SYNCED with googleapis(DNS)+metadata(STATIC) SEs; CUSTOM AP existing
+  did NOT break openfga (provider defined)
+- authorization workload PERMANENTLY LDS Not Found regardless of:
+  SEs deleted (mysql, redis, ALL), CUSTOM AP deleted, tcp-dlv port
+  removed, istio-system authorization SE deleted, scale 0->1 cycle.
+  Plus 3x `Error calling trafficdirector.googleapis.com: rpc error:
+  code = Internal` (08:36:54, 09:10:04, 09:22:55 UTC) always around
+  this workload -> POISONED TD SERVER-SIDE STATE for identity
+  earth-authorization-service suspected
+- CRITICAL DOC FIND: TD does NOT support `location: MESH_INTERNAL` in
+  ServiceEntry - and MESH_INTERNAL is the DEFAULT when omitted. Our
+  authorization SE (istio-system, extauthz target) omitted location!
+  FIXED in main.tf: added location=MESH_EXTERNAL. Theory: that SE
+  poisoned TD config-gen for the workload SERVING its endpoint port
+  (4000) = exactly authorization
+- pending test: clone deployment with new name/label (jq rename) -
+  if clone syncs, identity is poisoned -> UNBLOCK = rename workload
+  (e.g. -v2) in authorization base/service repos
+- strategic option discussed: NEW CLUSTER on rapid channel -> istio
+  1.21+: fromCookies (kills EnvoyFilter need), DNS proxy (fake
+  hostnames work). Medium-term, not tonight
+- cluster drift note: openfga deploy annotation still has
+  holdApplicationUntilProxyStarts:false bypass + tcp-dlv port patch
+  live-only; authorization svc dlv port removed live only
+
+
+## CONSOLIDATION EXECUTION LOG (live, 2026-08-20 ~12:30-13:00 UTC)
+
+
+- ts -- apply: rapid configmap destroyed OK; rapid CPR delete FAILED
+  with 403 (earth-base-s SA lacks container.thirdPartyObjects.delete)
+  -> user deleted CPR via cloudshell admin account; delete HANGS in
+  Terminating (finalizer mesh.cloud.google.com/deprovision - Google
+  actively deprovisioning the rapid control plane, takes 10-20min).
+  If stuck >20min: kubectl patch controlplanerevision asm-managed-rapid
+  -n istio-system --type merge -p '{"metadata":{"finalizers":[]}}'
+- ts -- state rm kubernetes_manifest.kubernetes_manifest_control_plane_revision_asm_managed_rapid
+  (user should run if not yet done - CPR no longer in terraform code)
+- SIDE EFFECT of the rapid deprovision: BOTH istio mutatingwebhook-
+  configurations (istiod-asm-managed AND istio-revision-tag-default)
+  are GONE - the whole injection wiring belonged to the rapid CP.
+  Cluster currently has NO istio injection webhooks: DO NOT deploy or
+  restart workloads until they are recreated (pods would get NO sidecar)
+- IMPORTANT ownership facts: asm-managed CPR (regular) was created by
+  GOOGLE at cluster birth Aug 11 (labels owned-by=mesh.googleapis.com),
+  NOT by our terraform - it stays and is not in tf state. The rapid CPR
+  was OURS (3h-old experiment). The ORIGINAL bug was Google provisioning
+  installers wired to asm-managed-rapid while only the asm-managed CP
+  existed - from day one; MISSING_CONTROL_PLANE_CONFIG was hinting this
+- user ran `gcloud container fleet mesh update --management automatic
+  ...` -> reconciler must now REBUILD the webhooks from current state
+  (single regular CPR, REGULAR cluster channel, no rapid artifacts)
+- FINISH LINE check when istiod-asm-managed webhook reappears:
+  `kubectl get mutatingwebhookconfiguration istiod-asm-managed -o yaml | grep url:`
+  -> /controlPlanes/asm-managed/inject = FIXED -> pod delete -> verify
+  injection annotation asm-managed -> listeners populate -> sql works
+- if the rebuilt webhooks point at rapid AGAIN: upstream fleet-side
+  record forces rapid -> ironclad issuetracker.google.com case; cluster
+  rebuild would inherit the same bug, so don't bother rebuilding
+
+
+
+## ROOT CAUSE FINAL: revision mismatch - Google provisioned RAPID, we configured REGULAR
+
+- the days-long "no egress" saga root cause chain (staging, likely dev+
+  production too): cluster terraform pins min_master_version 1.35
+  WITHOUT release_channel -> GKE bootstrapped on RAPID (1.35 only there
+  at creation) -> Google mesh reconciler provisioned control plane
+  `asm-managed-rapid` (env-asm-managed-rapid + istio-asm-managed-rapid
+  configmaps, injection webhooks). Cluster channel later moved to
+  REGULAR + asm-managed CPR appeared, but Google's injection wiring
+  NEVER retargeted: BOTH mutatingwebhookconfigurations (istiod-asm-
+  managed AND istio-revision-tag-default) call
+  .../controlPlanes/asm-managed-rapid/inject - verified via `kubectl
+  get mutatingwebhookconfiguration ... | grep url:`. So ALL pods are
+  injected as revision asm-managed-rapid regardless of namespace label
+- consequence: sidecars announce asm-managed-rapid to meshconfig xDS;
+  our MeshConfig lives in configmap `istio-asm-managed` which the
+  rapid control plane NEVER READ. Zero LDS delivered -> the mesh-wide
+  blackhole. All earlier fixes (EnvoyFilter shapes, transcoder
+  removal) were real TD-validation problems but not sufficient
+- istioctl tag set default --revision asm-managed did flip the tag
+  metadata but the tag webhook URL still points at rapid injector ->
+  no effect (Google-managed wiring)
+- TERRAFORM FIX (earth-base, uncommitted, all 3 envs, validate+build
+  green): duplicated the MeshConfig configmap as
+  `kubernetes_config_map_v1_istio_asm_managed_rapid` (name
+  istio-asm-managed-rapid, identical mesh content) - now BOTH revision
+  names carry our config, whichever revision Google runs reads it.
+  Namespace labels left as asm-managed (51 files; label does not
+  influence injector routing here)
+- APPLY GOTCHA: istio-asm-managed-rapid ALREADY EXISTS in staging
+  (Google-created 9d ago) -> first apply 409s; import first:
+  `ts -- import kubernetes_config_map_v1.kubernetes_config_map_v1_istio_asm_managed_rapid istio-system/istio-asm-managed-rapid`
+  then ts -- apply (overwrites Google's content with ours: REGISTRY_
+  ONLY + ext-authz + holdApplicationUntilProxyStarts). Same for dev/
+  production if the rapid configmap exists there
+- after apply: delete openfga pod, expect listeners to FINALLY
+  populate (sidecar revision asm-managed-rapid + our meshconfig in
+  istio-asm-managed-rapid + validation-clean = all pieces aligned)
+- LONG-TERM followups: add explicit `release_channel { channel =
+  "REGULAR" }` to cluster resource (prevents channel drift; verify
+  1.35/REGULAR compatibility first), keep dual configmaps until Google
+  fixes the webhook wiring to regular, then optionally drop the rapid
+  one. File issuetracker.google.com issue about the stale rapid
+  injection wiring on REGULAR-channel cluster
+
+
+
+## CURRENT STATE CHECKPOINT (superseded by ROOT CAUSE FINAL above - kept for history)
 
 WHERE WE ARE (staging, 2026-08-20 ~08:15 UTC):
 - CONFIG_VALIDATION_ERROR is GONE from `gcloud container fleet mesh
@@ -1026,6 +1449,43 @@ WHERE WE ARE (staging, 2026-08-20 ~08:15 UTC):
   Still 3 = Google support case "TD not pushing xDS after
   CONFIG_VALIDATION_ERROR recovery" (evidence: API enabled, CPR
   reconciled, EnvoyFilter Accepted, clean xDS stream, no NACKs)
+- UPDATE post-reprovision: reprovision COMPLETED (REVISION_READY/
+  ACTIVE, VPCSC_GA_SUPPORTED INFO appeared = fresh control plane) but
+  STILL no dynamic listeners. Raw `istioctl proxy-config listeners`
+  shows ONLY static admin listeners 15021+15090 - NO virtualOutbound
+  15001 / virtualInbound 15006 / service routes -> zero LDS ever
+  delivered. Egress yamls definitively NOT the cause (no outbound
+  listener exists for SEs to attach to; identical files worked
+  pre-incident; gateways don't use them and fail too)
+- USER-SIDE REMEDIATION EXHAUSTED -> 1) Google support case P2 (CSM
+  TD control plane READY/ACTIVE but no LDS/CDS despite clean xDS,
+  post-CONFIG_VALIDATION_ERROR recovery, force-reprovision didn't
+  help, MISSING_CONTROL_PLANE_CONFIG persists despite reconciled CPR),
+  2) parallel long shot: re-run `gcloud container fleet mesh update
+  --management automatic --memberships earth-gke-staging-eu-1-membership
+  --project earth-staging-504915 --location global` (idempotent,
+  forces full reconcile path), wait 15-20min, recheck
+- manual->automatic management toggle DONE by user: no change,
+  MISSING_CONTROL_PLANE_CONFIG persists. terraform verified IDENTICAL
+  to the official ASM-module-removal replacement pattern
+  (terraform-google-kubernetes-engine upgrading_to_v36.0.md) - hub
+  feature + membership + feature_membership MANAGEMENT_AUTOMATIC all
+  correct, nothing missing on our side. User has NO support plan ->
+  file free issue at issuetracker.google.com (component Cloud Service
+  Mesh)
+- TMP MESH BYPASS deployed to code (uncommitted, build+format green):
+  `traffic.sidecar.istio.io/excludeOutboundPorts: "443,3307"` added to
+  service.yaml of openfga/authorization/authentication with marker
+  comment `# 0010_way_back_home: tmp mesh bypass while TD control
+  plane broken, revert after mesh heals`. Bypasses envoy for sqladmin
+  API (443) + Cloud SQL data plane (3307) -> DB works with ZERO
+  listeners. NOTE: also bypasses mesh for ALL other 443 egress
+  (pubsub, googleapis) - acceptable tmp state. Service-to-service
+  gRPC 3000/3001 still needs the mesh (mTLS REGISTRY_ONLY) - full
+  service mesh traffic remains broken until TD delivers config.
+  REVERT: rg 'tmp mesh bypass' in service repos
+- sql-proxy image bump ruled out as cause (plain TCP to Google
+  frontend; refusal is local envoy RST, not remote)
 - checked/ruled out: trafficdirector.googleapis.com ENABLED, CPR exists
   reconciled (asm-managed, 9d), istio-cni DaemonSet healthy (the
   NetworkNotReady events were new-node bootstrap races), istioctl
